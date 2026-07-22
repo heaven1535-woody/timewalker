@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0e0a08">
+<title>타임 워커 — 14세기 런던</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: #0e0a08;
+    overscroll-behavior: none;
+  }
+  body {
+    background: radial-gradient(120% 90% at 50% 0%, #241d16 0%, #16110d 55%, #0e0a08 100%);
+    background-attachment: fixed;
+    color: #d8cdbc;
+    font-family: 'Noto Sans KR', -apple-system, sans-serif;
+    -webkit-user-select: none; user-select: none;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  #app {
+    width: 100%; max-width: 420px; min-height: 100vh;
+    min-height: 100dvh;
+    display: flex; flex-direction: column;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  }
+
+  header { padding: 16px 20px 4px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  #topLabel { font-size: 12px; letter-spacing: .18em; color: #8a7c69; }
+  #gauge { display: flex; gap: 6px; height: 18px; align-items: center; }
+  #purse { display: inline-flex; align-items: center; gap: 4px;
+    margin-left: 10px; font-size: 12px; color: #b08d4a;
+    font-family: 'Noto Serif KR', serif; }
+  #purse svg { width: 15px; height: 15px; }
+  #purse.empty { color: #6b5b45; }
+  #feedback { height: 20px; font-size: 13px; font-family: 'Noto Serif KR', serif;
+    opacity: 0; transition: opacity .2s; text-align: center; }
+  #feedback.show { opacity: 1; }
+  #feedback.up { color: #c9403a; }
+  #feedback.down { color: #7d9c6b; }
+
+  main { flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 4px 20px 28px; width: 100%; }
+
+  .parchment {
+    width: 100%;
+    background: linear-gradient(160deg, #efe4cd 0%, #e2d2b4 100%);
+    color: #2a221a; border-radius: 6px;
+    box-shadow: 0 18px 44px rgba(0,0,0,.55), inset 0 0 60px rgba(120,90,50,.14);
+  }
+  .panel { padding: 34px 26px; text-align: center; max-height: 78vh; max-height: 78dvh; overflow-y: auto; }
+  h1 { font-family: 'Noto Serif KR', serif; font-weight: 700; font-size: 30px;
+    letter-spacing: .14em; margin: 0; }
+  h2 { font-family: 'Noto Serif KR', serif; font-weight: 600; font-size: 21px;
+    letter-spacing: .1em; margin: 0; }
+  .rule { width: 46px; height: 2px; background: #b07f2e; margin: 16px auto 20px; }
+  .body-text { font-family: 'Noto Serif KR', serif; font-size: 15.5px; line-height: 1.85;
+    white-space: pre-line; text-align: left; margin: 0 0 22px; }
+  .btn {
+    font-family: 'Noto Serif KR', serif; font-size: 16px; font-weight: 600;
+    letter-spacing: .1em; background: #2a221a; color: #e8d9ba;
+    border: 1px solid #4a3d2e; border-radius: 4px; padding: 14px 30px;
+    width: 100%; cursor: pointer;
+  }
+  .btn:active { background: #3a2f24; }
+  .note { font-size: 11.5px; color: #8a7455; margin: 14px 0 0; }
+
+  .result-line {
+    font-family: 'Noto Serif KR', serif; font-style: italic;
+    font-size: 13.5px; line-height: 1.7; color: #7d6a4f;
+    border-left: 2px solid #c4a662; padding-left: 12px;
+    text-align: left; margin: 0 0 18px;
+  }
+
+  #progress { display: flex; gap: 8px; margin-bottom: 18px; min-height: 7px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #d9a441; }
+
+  #cardZone { width: 100%; display: flex; flex-direction: column; gap: 18px; }
+  #card {
+    min-height: 268px; padding: 30px 26px;
+    display: flex; flex-direction: column;
+    touch-action: none; cursor: grab;
+    overflow: hidden;
+  }
+  #cardInner { display: flex; flex-direction: column; flex: 1; }
+  #speaker { font-size: 12px; letter-spacing: .2em; color: #8a6a33;
+    margin-bottom: 14px; font-weight: 500; min-height: 12px; }
+  #cardText { font-family: 'Noto Serif KR', serif; font-size: 17px;
+    line-height: 1.9; margin: 0; flex: 1; white-space: pre-line; }
+  #hint { text-align: center; font-size: 11.5px; color: #a58c62;
+    letter-spacing: .22em; margin-top: 18px; }
+
+  #choices { display: flex; gap: 10px; }
+  .choice {
+    flex: 1; font-family: 'Noto Serif KR', serif; font-size: 14.5px;
+    background: rgba(30,24,18,.72); color: #a89a88;
+    border: 1px solid #3d332a; border-radius: 4px; padding: 13px 8px;
+    cursor: pointer; transition: border-color .15s, color .15s;
+  }
+  .choice.armed { border-color: #d9a441; color: #d9a441; }
+
+  .records { text-align: left; margin: 0 0 22px; }
+  .records-title { font-size: 12px; letter-spacing: .18em; color: #8a6a33;
+    font-weight: 500; margin-bottom: 10px; text-align: center; }
+  details { border: 1px solid #c9b58a; border-radius: 4px; margin-bottom: 8px;
+    background: rgba(255,250,238,.4); }
+  summary { font-family: 'Noto Serif KR', serif; font-size: 14px; font-weight: 600;
+    padding: 11px 14px; cursor: pointer; list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: "\25B8 "; color: #b07f2e; }
+  details[open] summary::before { content: "\25BE "; }
+  .rec-body { padding: 0 14px 12px; }
+  .rec-body p { font-family: 'Noto Serif KR', serif; font-size: 13.5px;
+    line-height: 1.8; margin: 0 0 10px; }
+  .disputed { background: rgba(140,100,40,.1); border: 1px dashed #a58248;
+    border-radius: 4px; padding: 10px 12px; }
+  .disputed-label { font-size: 10.5px; letter-spacing: .16em; color: #8a6a33;
+    font-weight: 500; margin-bottom: 5px; }
+  .rec-empty { font-family: 'Noto Serif KR', serif; font-size: 13px;
+    color: #8a7455; text-align: center; padding: 8px 0; }
+  .stat { font-size: 12.5px; color: #6d5c46; margin-bottom: 20px; }
+  .hidden { display: none !important; }
+
+  /* ── 채색 장면 세밀화 ── */
+  .scene-min { width: 100%; display: block; margin: 0 auto 14px; }
+
+  /* ── 장면 배경 삽화 ── */
+  .band-wrap { position: relative; margin: -30px -26px 18px; }
+  .band-wrap.in-panel { margin: -34px -26px 20px; }
+  .band { width: 100%; display: block; border-radius: 6px 6px 0 0;
+    border-bottom: 1px solid #c0a878; }
+  img.band { width: 100%; height: auto; max-height: 340px; object-fit: contain;
+    background: #17110c;
+    filter: sepia(.12) contrast(.97) saturate(.94); }
+  .art-cap { font-size: 9.5px; line-height: 1.5; color: #8a7455;
+    padding: 5px 26px 0; text-align: right; letter-spacing: .02em; }
+  .medallion { position: absolute; right: 10px; bottom: -18px;
+    width: 44px; height: 44px; border-radius: 50%;
+    background: #efe4cd; border: 1.5px solid #b07f2e;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    display: flex; align-items: center; justify-content: center; }
+  .medallion svg { width: 34px; margin: 0; }
+
+  /* ── 판화풍 비녜트 ── */
+  .vignette { width: 112px; margin: 0 auto 8px; display: block; opacity: .92; }
+  .vignette-lg { width: 156px; margin: 0 auto 2px; display: block; opacity: .92; }
+
+  /* ── 장면 삽화 ── */
+  .scene-art { width: 100%; max-height: 220px; object-fit: cover;
+    border-radius: 4px; border: 1px solid #c9b58a;
+    filter: sepia(.12) contrast(.97); display: block; margin: 0 auto 6px; }
+  .art-cap { font-size: 10.5px; color: #8a7455; letter-spacing: .04em;
+    margin-bottom: 16px; }
+
+  /* ── 연출 ── */
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); }
+                      to   { opacity: 1; transform: none; } }
+  .fade-in { animation: fadeUp .45s ease both; }
+  #fx { position: fixed; inset: 0; pointer-events: none; opacity: 0;
+    transition: opacity .9s ease; z-index: 50;
+    background: radial-gradient(120% 120% at 50% 50%,
+      rgba(70,10,7,.3) 0%, rgba(8,4,3,.97) 78%); }
+  #fx.on { opacity: 1; }
+
+  /* ── 타이틀 ── */
+  @keyframes eyeGlow { 0%,100% { opacity: .75; } 50% { opacity: 1; } }
+  .title-eye { width: 88px; margin: 4px auto 16px; animation: eyeGlow 4s ease-in-out infinite; }
+  .title-sub { font-size: 11px; letter-spacing: .34em; color: #8a6a33; margin-top: 12px; }
+  .tagline { font-family: 'Noto Serif KR', serif; font-size: 15px; line-height: 1.9;
+    white-space: pre-line; margin: 0 0 26px; color: #4a3d2e; }
+
+  @media (prefers-reduced-motion: reduce) {
+    #card { transition: none !important; }
+    .fade-in { animation: none !important; }
+    .title-eye { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div id="topLabel">14세기 런던 · 프로토타입</div>
+    <div id="gauge"></div>    <div id="feedback"></div>
+  </header>
+  <main>
+    <div id="progress" class="hidden"></div>
+
+    <div id="cardZone" class="hidden">
+      <div id="card" class="parchment">
+        <div id="cardInner">
+          <div id="cardArt"></div>
+          <div id="resultLine" class="result-line hidden"></div>
+          <div id="speaker"></div>
+          <p id="cardText"></p>
+          <div id="hint">◂ 밀어서 선택 ▸</div>
+        </div>
+      </div>
+      <div id="choices">
+        <button class="choice" id="btnLeft"></button>
+        <button class="choice" id="btnRight"></button>
+      </div>
+    </div>
+
+    <div id="panel" class="parchment panel"></div>
+  </main>
+</div>
+<div id="fx"></div>
+
+<script>
+/* ============================================================
+   시나리오 데이터 — 실제 버전에서는 별도 JSON으로 분리
+   카드 규칙:
+   - 각 카드는 id를 가진다
+   - 선택지에 next가 있으면 해당 id로 점프, "END"면 장면 종료
+   - next가 없으면 배열 순서대로 진행 (선형 장면용)
+   ============================================================ */
+const SCENARIO = {
+  title: "타임 워커",
+  suspicionMax: 6,
+  trustThreshold: 3,
+  intro: "타임머신이 멈춰 선 곳은 14세기 런던 외곽. 당신은 기계를 숲에 숨기고 마을로 들어선다.\n\n이 시대의 규칙을 모른다는 것, 그것이 당신의 유일한 약점이다.\n\n무사히 지나온 장면의 기록만이 여행의 끝에 남는다.",
+  scenes: [
+    {
+      label: "장면 1", title: "시장 거리",
+      art: { file: "Medieval market.jpg",
+             caption: "중세 시장 풍경 — 퍼블릭 도메인 (Wikimedia Commons)" },
+      intro: "사우스워크 외곽의 시장 거리.\n\n생선 비린내와 하수 냄새가 뒤섞여 코를 찌른다. 좌판마다 호객 소리가 넘치고, 당신은 그 속에서 최대한 눈에 띄지 않으려 애쓴다.",
+      cards: [
+        { id: "m1", speaker: "파이 장수",
+          text: "\u201c갓 구운 장어 파이요!\u201d\n\n장수가 당신의 행색을 위아래로 훑더니 값을 부른다. \u201c2펜스요.\u201d 방금 앞 손님은 절반만 내고 갔다.",
+          left:  { label: "\u201c1페니면 충분하잖소\u201d", suspicion: -1, trust: 0,
+                   result: "장수가 못 이기는 척 파이를 건넨다. \u201c빈틈없는 양반이군.\u201d" },
+          right: { label: "부르는 대로 낸다", suspicion: 1, trust: 0,
+                   result: "장수가 동전을 받으며 히죽 웃는다. 주변 좌판 상인들이 당신을 흘깃거린다." } },
+        { id: "m2", speaker: "수레꾼",
+          text: "당신의 신발과 말씨가 이곳 사람들과 다르다는 걸 눈치챈 모양이다.\n\n\u201c처음 보는 얼굴인데. 어디서 오셨소?\u201d",
+          left:  { label: "\u201c캔터베리로 가는 길이오\u201d", suspicion: -1, trust: 0,
+                   result: "\u201c베켓 성인의 가호가 있기를.\u201d 수레꾼이 고개를 끄덕이고 제 갈 길을 간다." },
+          right: { label: "\u201c그건 알 것 없소\u201d", suspicion: 2, trust: 0,
+                   result: "수레꾼이 눈을 가늘게 뜬다. \u201c…수상한 양반이군.\u201d 그가 옆 사람에게 뭐라 수군거린다." } },
+        { id: "ale", speaker: "에일하우스 사내",
+          text: "에일하우스 앞, 사람들이 나무잔을 기울인다. 한 사내가 당신에게도 잔을 밀어준다.\n\n“새 술통을 땄소. 한 잔 안 할 텐가? 검사관이 오기 전에 맛봐 둬야지.”",
+          left:  { label: "받아 한 모금 마신다", suspicion: -1, trust: 0,
+                   result: "텁텁한 에일이 목을 넘어간다. 함께 잔을 든 당신을, 사람들이 낯설어하지 않는다." },
+          right: { label: "“물은 없소?”", suspicion: 2, trust: 0,
+                   result: "사내들이 어이없다는 듯 웃는다. “강물을 마시겠다고? 병에 걸리려 작정했나.” 이상한 자로 찍혔다." } },
+        { id: "m3", speaker: "",
+          text: "좁은 길목에서 소년 하나가 어깨를 세게 부딪히고 지나간다.\n\n허리춤이 허전하다. 동전 주머니가 사라졌다.",
+          left:  { label: "\u201c도둑이야!\u201d 소리친다", suspicion: 1, trust: 0, coins: 1,
+                   result: "사람들이 몰려들자 소년이 겁먹고 주머니를 던지고 달아난다. 동전은 지켰지만, 시선을 잔뜩 끌었다." },
+          right: { label: "조용히 보낸다", suspicion: 0, trust: 0, coins: -2,
+                   result: "빈털터리에 가까워졌다. 대신 소란은 피했다. \u2014 이 거리에선 그게 나을지도 모른다." } },
+        { id: "m4", speaker: "",
+          text: "교회 종이 길게 울린다.\n\n파이 장수도, 수레꾼도 하던 일을 멈추고 고개를 숙인 채 입속으로 기도문을 왼다. 거리가 일순 조용해진다.",
+          left:  { label: "계속 걷는다", suspicion: 2, trust: 0,
+                   result: "기도하던 이들의 눈이 일제히 당신을 향한다. 누군가 성호를 그으며 물러선다." },
+          right: { label: "따라 멈추고 고개를 숙인다", suspicion: -1, trust: 0,
+                   result: "종소리가 잦아들자 거리가 다시 움직인다. 아무도 당신을 이상하게 보지 않았다." } }
+      ],
+      record: {
+        title: "시장 거리",
+        confirmed: "12세기 말 윌리엄 피츠스티븐(토머스 베켓의 서기)의 런던 묘사에는 템스 강변의 공공 조리음식점(cookshop)이 등장한다. 조리 시설이 없는 도시민과 여행자들이 익힌 음식을 사 먹는 문화는 중세 런던의 일상이었다. 낯선 여행자에게 순례는 가장 흔하고 의심받지 않는 신분이었으며, 교회 종은 도시의 하루를 구획하는 시계 역할을 했다.",
+        disputed: "파이의 실제 가격, 그리고 종소리에 맞춰 거리에서 기도하는 관습(안젤루스)이 14세기 런던에서 정확히 어떤 형태였는지는 원 사료로 확인하지 못했다. 피츠스티븐의 기록도 12세기의 것이므로 14세기와는 시차가 있다."
+      }
+    },
+    {
+      label: "장면 2", title: "그로프 레인",
+      intro: "골목 어귀, 낡은 표지판 하나가 걸려 있다.\n\n이 거리의 이름은 입에 올리기 민망할 만큼 노골적이다. 벽에는 줄무늬 후드를 쓴 여인 둘이 지친 얼굴로 서로 기대앉아 있다.",
+      cards: [
+        { id: "g1", speaker: "낯선 사내",
+          text: "어느새 다가온 사내가 어깨에 손을 얹는다.\n\n\u201c형씨, 처음이지? 좋은 데 소개해 줄까?\u201d",
+          left:  { label: "\u201c관심 없소\u201d", suspicion: 0, trust: 0,
+                   result: "사내가 침을 뱉으며 물러난다. \u201c재수 없는 놈.\u201d" },
+          right: { label: "\u201c…얼마요?\u201d", suspicion: 2, trust: 0,
+                   result: "사내의 눈이 번뜩인다. \u201c봉이 하나 걸렸군.\u201d 당신은 서둘러 자리를 뜬다." } },
+        { id: "g2", speaker: "",
+          text: "기대앉은 여인 하나와 눈이 마주친다.\n\n짙은 화장 아래, 지친 눈빛이 당신을 가늠하고 있다.",
+          left:  { label: "서둘러 지나친다", suspicion: 0, trust: 0,
+                   result: "여인이 흥미를 잃은 듯 고개를 돌린다." },
+          right: { label: "가볍게 목례한다", suspicion: 0, trust: 1,
+                   result: "여인이 의외라는 듯 피식 웃는다. 골목 안쪽에서 젊은 여인 하나가 그 모습을 가만히 지켜보고 있다." } },
+        { id: "waterman", speaker: "뱃사공",
+          text: "강가 선착장에서 뱃사공이 손짓한다.\n\n“강 건너 사우스워크로 가시오? 해지기 전에 타쇼. 밤엔 스튜로 사람 못 실어 나르니까.”",
+          left:  { label: "뱃삯을 치르고 오른다", suspicion: -1, trust: 0, coins: -1, need: "coins",
+                   fail: { suspicion: 1, trust: 0,
+                           result: "동전이 없다. 사공이 콧방귀를 뀐다. “삯도 없이 어딜. 걸어서 다리로 돌아가쇼.” 괜한 실랑이에 눈길이 모인다." },
+                   result: "사공이 노를 젓는다. 자연스레 강을 건너는 당신을, 아무도 수상히 보지 않는다." },
+          right: { label: "“그냥 걸어가겠소”", suspicion: 0, trust: 0,
+                   result: "사공이 어깨를 으쓱한다. 다리 쪽으로 발길을 돌리자, 골목은 다시 좁아진다." } },
+        { id: "g3", speaker: "시 관리",
+          text: "관리 하나가 거리를 훑고 지나가다, 후드를 벗고 있던 여인을 다그친다. 그러곤 당신을 돌아본다.\n\n\u201c이 여자가 여기서 손님을 받는 걸 봤나?\u201d",
+          left:  { label: "\u201c못 봤소\u201d", suspicion: 0, trust: 1,
+                   result: "관리가 혀를 차며 지나간다. 여인이 안도의 숨을 내쉰다." },
+          right: { label: "고개를 끄덕인다", suspicion: 0, trust: -1,
+                   result: "여인이 끌려가며 당신을 노려본다. 골목의 시선이 싸늘하다." } },
+        { id: "g4", speaker: "심부름꾼 아이",
+          text: "꼬마 하나가 표지판을 가리키며 묻는다.\n\n\u201c아저씨, 저기 뭐라고 써 있어요?\u201d",
+          left:  { label: "\u201c나도 글은 모른다\u201d", suspicion: -1, trust: 0,
+                   result: "아이가 시무룩하게 돌아선다. 이 거리에서 글을 아는 이는 드물다." },
+          right: { label: "읽어 준다", suspicion: 2, trust: 0, flag: "literate",
+                   result: "아이는 까르르 웃지만, 근처 사내들이 당신을 다시 훑어본다. 그 행색에 어울리지 않는 재주다." } }
+      ],
+      record: {
+        title: "그로프 레인",
+        confirmed: "그로프컨트 레인(Gropecunt Lane)은 실제 중세 잉글랜드 도시들에 있던 거리 이름이다. 런던 치프사이드 인근의 거리는 1279년 기록에 등장하며, 요크·옥스퍼드·브리스틀 등에도 같은 이름이 있었다. 중세 거리 이름은 그 거리의 기능을 그대로 반영했고, 후대에 그레이프 레인(요크)·맥파이 레인(옥스퍼드) 등으로 순화되었다. 런던시는 1351년과 1382년 조례(시 서한집 Letter Book F·H)로 \u2018평판 나쁜 여성\u2019에게 모피를 금지하고 줄무늬(ray) 천 후드만 쓰도록 규정했으며, 1393년에는 활동 구역을 콕 레인과 사우스워크의 스튜로 제한했다.",
+        disputed: "일부 대중서(이언 모티머 『시간여행자를 위한 중세 안내서』)는 노란 후드로 적어 자료 간 차이가 있다. 또한 줄무늬 후드 조례는 런던시 관할인데, 이 이야기의 무대인 사우스워크는 시 경계 밖(윈체스터 주교 관할)이었으므로 같은 규정이 그대로 적용됐는지는 추가 확인이 필요하다. 문맹률 관련 묘사도 일반론이며 수치 사료는 확인하지 않았다."
+      }
+    },
+    {
+      label: "장면 3", title: "공중목욕탕 앞",
+      art: { file: "Scene of a bathhouse, c. 1470, painted by the Master of Anthony of Burgundy (Berlin Staatsbibliothek, Ms. Dep. Breslau 2, vol. 2, fol. 244).jpg",
+             caption: "목욕탕 풍경, 발레리우스 막시무스 필사본(1470년경) — 베를린 국립도서관, 퍼블릭 도메인" },
+      intro: "사람들의 발길을 따라 좁은 골목을 걷다 보니, 커다란 건물 앞에 무리가 모여 있다.\n\n\u2018스튜\u2019라 불리는 공중목욕탕. 몸을 씻는 곳이라기보다, 온갖 사람과 돈과 소문이 모여드는 곳이다.",
+      cards: [
+        { id: "gate", speaker: "관리인",
+          text: "문으로 들어서려는 순간, 관리인이 손을 들어 막아선다.\n\n\u201c외지인은 안 된다. 아는 얼굴만 들어올 수 있어.\u201d",
+          left:  { label: "물러선다", suspicion: 0, trust: 0, next: "accuse",
+                   result: "관리인이 고개를 끄덕이곤 다음 사람을 부른다." },
+          right: { label: "동전을 내민다", suspicion: 2, trust: 0, next: "accuse", coins: -1, flag: "bribed",
+                   result: "관리인이 동전을 챙기고도 길을 막는다. \u201c수작 부리지 마.\u201d 뒤에 선 사람들이 킬킬거린다." } },
+        { id: "accuse", speaker: "군중 속 목소리",
+          text: "\u201c저자다! 저자가 바로 돈주머니를 훔친 놈이다!\u201d\n\n시선이 일제히 당신에게 쏠린다. 소리친 자의 얼굴은 보이지 않는다.",
+          left:  { label: "달아난다", suspicion: 1, trust: 0, next: "runA",
+                   mod: [{ flag: "badAdvice", suspicion: 2,
+                           add: "\u2014 아까 그 사내의 \u2018조언\u2019대로 했을 뿐인데. 군중은 도망치는 자를 도둑으로 확신했다." }],
+                   result: "당신은 몸을 돌려 내달린다. 등 뒤에서 고함이 터진다. \u201c잡아라!\u201d" },
+          right: { label: "그 자리에 선다", suspicion: 0, trust: 0, next: "stand",
+                   result: "당신은 움직이지 않는다. 웅성거림이 파도처럼 커진다." } },
+
+        { id: "runA", speaker: "",
+          text: "골목은 막다른 길이었다.\n\n뒤에서는 횃불과 발소리가 몰려온다. 담은 높고, 손은 떨린다.",
+          left:  { label: "담을 넘는다", suspicion: 1, trust: 0, next: "rescueA",
+                   result: "담 위에서 손이 미끄러진다. 바닥에 떨어진 당신을 억센 팔들이 붙든다." },
+          right: { label: "돌아서서 두 손을 든다", suspicion: 0, trust: 0, next: "rescueA",
+                   result: "군중이 당신을 에워싼다. 누군가 당신의 손목을 거칠게 움켜쥔다." } },
+        { id: "rescueA", speaker: "젊은 여인",
+          text: "그때, 낯익은 목소리가 군중을 가른다.\n\n\u201c이분은 제 손님이에요. 도둑으로 몰다니 무슨 짓입니까?\u201d 사내가 순순히 손을 놓는다. 그녀가 낮게 속삭인다. \u201c…달아나면 자백이 된다는 것도 모르세요?\u201d",
+          left:  { label: "\u201c…고맙소\u201d", suspicion: 0, trust: 1, next: "END",
+                   result: "그녀가 한숨을 쉬며 당신의 소매를 끈다. \u201c따라오세요. 봉변당하기 전에.\u201d" },
+          right: { label: "\u201c당신은 누구요?\u201d", suspicion: 0, trust: 0, next: "END",
+                   result: "\u201c은인한테 던질 질문은 아니네요.\u201d 그녀가 어이없다는 듯 웃곤 앞장선다." } },
+
+        { id: "stand", speaker: "",
+          text: "억센 팔 하나가 당신의 손목을 움켜쥔다.\n\n\u201c네놈 주머니를 뒤져보면 알겠지!\u201d",
+          left:  { label: "\u201c난 결백하오!\u201d 외친다", suspicion: 1, trust: 0, next: "pleadB",
+                   result: "당신의 외침에 군중이 술렁인다. \u201c…말씨가 이상한데?\u201d \u201c외지 놈이잖아!\u201d" },
+          right: { label: "말없이 사내의 눈을 마주 본다", suspicion: 0, trust: 0, next: "silentC",
+                   result: "사내가 움찔한다. 도둑이라기엔 너무 태연한 눈이다." } },
+
+        { id: "pleadB", speaker: "",
+          text: "\u201c외지 놈이 여긴 왜 왔대?\u201d\n\n군중의 눈초리가 점점 사나워진다. 무언가 더 말해야 한다.",
+          left:  { label: "\u201c순례자요! 베켓 성인께 맹세코!\u201d", suspicion: -1, trust: 0, next: "rescueB",
+                   result: "성인의 이름에 몇몇이 주춤한다. \u201c…순례자를 잘못 건드리면 벌 받는데.\u201d" },
+          right: { label: "\u201c증거라도 있소?\u201d", suspicion: 1, trust: 0, next: "rescueB",
+                   result: "\u201c증거는 네놈 주머니에 있겠지!\u201d 말싸움이 사나워진다." } },
+        { id: "rescueB", speaker: "젊은 여인",
+          text: "그때, 젊은 여인 하나가 앞으로 나선다.\n\n\u201c이분은 제 손님이에요. 도둑으로 몰다니 무슨 짓입니까?\u201d 명령조에 가까운 말투에, 의외로 사내는 순순히 손을 놓는다.",
+          left:  { label: "말없이 따라간다", suspicion: 0, trust: 1, next: "END",
+                   result: "그녀가 당신의 소매를 끌며 골목으로 빠져나간다. \u201c말이 많으면 목숨이 짧아져요, 여기선.\u201d" },
+          right: { label: "\u201c혼자서도 됐소\u201d", suspicion: 0, trust: -1, next: "END",
+                   result: "그녀의 눈썹이 찌푸려진다. \u201c…그럼 다음엔 혼자 해 보시든가요.\u201d 그래도 그녀는 앞장서 걷는다." } },
+
+        { id: "silentC", speaker: "",
+          text: "팽팽한 침묵 속, 군중 뒤편이 눈에 들어온다.\n\n아까 소리쳤던 자가 슬그머니 무리를 빠져나가고 있다.",
+          left:  { label: "\u201c저놈이다!\u201d 손가락으로 가리킨다", suspicion: 1, trust: 0, next: "rescueC",
+                   result: "군중이 돌아보지만 사내는 이미 없다. \u201c수작 부리지 마라!\u201d 소란만 커졌다." },
+          right: { label: "눈으로만 좇아 얼굴을 기억해 둔다", suspicion: -1, trust: 1, next: "rescueC", flag: "sawFace",
+                   result: "당신은 조용히 그 얼굴을 새긴다. 어디선가, 누군가도 당신의 그 침착함을 지켜보고 있었다." } },
+        { id: "rescueC", speaker: "젊은 여인",
+          text: "그때, 젊은 여인 하나가 군중을 가르며 나선다.\n\n\u201c이분은 제 손님이에요. 도둑으로 몰다니 무슨 짓입니까?\u201d 사내가 손을 놓는다. 그녀가 당신을 보며 눈짓한다. \u2014 봤죠, 저도 봤어요.",
+          left:  { label: "말없이 따라간다", suspicion: 0, trust: 1, next: "END",
+                   result: "그녀가 골목으로 앞장선다. \u201c도망치지 않은 건 잘하셨어요. 여기선 그게 답이에요.\u201d" },
+          right: { label: "고개 숙여 감사를 표한다", suspicion: 0, trust: 1, next: "END",
+                   result: "\u201c인사는 나중에요.\u201d 그녀가 웃음기 어린 목소리로 당신의 소매를 끈다." } }
+      ],
+      record: {
+        title: "공중목욕탕 (스튜)",
+        confirmed: "사우스워크의 \u2018스튜(stew)\u2019는 목욕탕을 겸한 유곽으로, 런던시 관할 밖인 윈체스터 주교 영지에서 운영되었다. 1391년 런던시는 해질녘부터 해뜰녘까지 뱃사공이 스튜로 사람을 실어 나르는 것을 금지했고, 1393년 포고는 매춘부의 활동을 사우스워크의 스튜와 콕 레인으로 제한하면서 그 이유로 \u2018수많은 싸움과 소요, 살인\u2019을 들었다. 1281년 런던에서는 살인·강도와 함께 \u2018불법 유곽 운영\u2019 혐의로 29명이 체포된 기록도 있다. 사우스워크의 스튜는 1546년 헨리 8세 때 폐쇄되었다.",
+        disputed: "스튜 운영 규칙으로 흔히 인용되는 1161년 윈체스터 주교 조례는 이번에 원문을 확인하지 못했다. \u2018아는 얼굴만 출입\u2019 같은 등록제의 구체적 형태는 극적 장치로 창작한 것이다."
+      }
+    },
+    {
+      label: "장면 4", title: "성 바오로 대성당",
+      intro: "그녀가 당신을 큰길에서 벗어나 거대한 석조 건물 안으로 이끈다.\n\n런던에서 가장 높은 첨탑, 성 바오로 대성당이다.\n\n“도둑으로 몰린 자를 누가 신의 집에서 찾겠어요? 사람들 틈에 섞이기만 해요.”",
+      cards: [
+        { id: "sanctuary", speaker: "그녀",
+          text: "그녀가 거대한 문 안으로 앞장선다.\n\n안은 촛불과 향 연기, 그리고 웅성거리는 사람들로 가득하다.",
+          left:  { label: "그녀를 따라 조용히 든다", suspicion: -1, trust: 0,
+                   result: "인파가 당신을 삼킨다. 수백의 얼굴 속에서, 당신은 그저 또 하나의 얼굴이 된다." },
+          right: { label: "문턱에서 머뭇거린다", suspicion: 1, trust: 0,
+                   result: "거대한 천장에 압도되어 우뚝 선 당신을, 문지기 수사가 흘깃 본다." } },
+        { id: "holy_water", speaker: "",
+          text: "문 안쪽 돌 대야 앞에서, 드나드는 이마다 손끝을 적셔 이마와 가슴에 성호를 긋는다.",
+          left:  { label: "따라서 성수를 찍고 성호를 긋는다", suspicion: -1, trust: 0,
+                   result: "익숙한 듯 손을 놀리자, 곁을 지나던 이들이 아무 의심 없이 지나간다." },
+          right: { label: "모른 채 그냥 지나친다", suspicion: 1, trust: 0,
+                   result: "대야를 그냥 지나치는 당신을, 한 노파가 이상하다는 듯 돌아본다." } },
+        { id: "sacring", speaker: "",
+          text: "제단에서 맑은 종소리가 울린다. 사제가 흰 성체를 머리 위로 높이 들어 올린다.\n\n순간, 온 회중이 물결처럼 무릎을 꿇고 그것을 우러른다.",
+          left:  { label: "함께 무릎 꿇고 우러른다", suspicion: -1, trust: 0,
+                   result: "당신도 돌바닥에 무릎을 댄다. 고개를 숙이니, 아무도 당신을 보지 않는다." },
+          right: { label: "어리둥절해 선 채 두리번거린다", suspicion: 2, trust: 0, flag: "marked",
+                   result: "모두가 엎드린 가운데 홀로 선 사람은 오직 당신뿐이다. 기둥 옆, 검은 옷의 소환리 하나가 그런 당신을 오래 응시한다." } },
+        { id: "her_coach", speaker: "그녀",
+          text: "그녀가 당신의 소매를 잡아 끌어 앉히며 낮게 속삭인다.\n\n“우러르는 ‘척’만 해도 충분해요. 여기선 진심을 묻는 사람은 없어요.”",
+          left:  { label: "말없이 그녀를 따른다", suspicion: -1, trust: 1,
+                   result: "그녀의 손끝을 따라 몸을 낮춘다. 그녀가 아주 옅게 웃는다. “…빨리 배우시네요.”" },
+          right: { label: "“당신은 신앙이 깊소?”", suspicion: 0, trust: 0,
+                   result: "그녀가 잠시 성체를 올려다본다. “글쎄요. 믿고 싶은 날도 있고, 아닌 날도 있죠.” 처음 보는 얼굴이었다." } },
+        { id: "leave", speaker: "그녀",
+          text: "미사가 끝나고 인파가 문으로 밀려 나간다. 그녀가 그 틈에 당신을 이끈다.",
+          left:  { label: "“덕분에 살았소”", suspicion: -1, trust: 0,
+                   result: "“신을 아는 건 중요하지 않아요.” 그녀가 앞서 걸으며 말한다. “아는 ‘척’하는 법을 아는 게 중요하죠.”" },
+          right: { label: "말없이 대성당을 나선다", suspicion: 0, trust: 0,
+                   result: "거대한 문이 등 뒤에서 닫힌다. 다시, 런던의 거리다." } }
+      ],
+      record: {
+        title: "성 바오로 대성당",
+        confirmed: "성 바오로 대성당은 중세 런던의 상징적 중심이자 도시 생활의 무대였다. 신자 대부분은 라틴어 미사를 ‘지켜보는’ 입장이었고, 미사의 절정인 성체 거양(elevation) 때 ‘성체 종(sacring bell)’이 울리면 무릎 꿇고 들어 올린 성체를 우러렀다. 교회는 도망자에게 일정 기간 몸을 의탁할 ‘성역(sanctuary)’을 제공하기도 했다.",
+        disputed: "본당 통로 ‘폴스 워크(Paul’s Walk)’가 상인과 한량으로 붐비는 사교장이었다는 묘사는 주로 16세기(튜더) 기록에 근거하며, 14세기에도 같은 정도였는지는 확실치 않다. 성체 거양에 대한 회중의 구체적 반응, 교회 관리(소환리)가 대성당에서 이방인을 적발하는 장면, 성역 절차의 세부는 극적 창작이다."
+      }
+    },
+    {
+      label: "장면 5", title: "귀족의 결혼식",
+      intro: "대성당을 나선 그녀가 눈을 반짝인다.\n\n\u201c오늘 밤 성에서 귀족의 결혼식이 열려요. 하인으로 꾸미면 신방까지 따라갈 수 있어요. \u2014 평생 못 볼 구경이죠.\u201d\n\n당신은 낡은 린넨 셔츠와 두건을 빌려 입는다.",
+      cards: [
+        { id: "disguise", speaker: "그녀",
+          text: "그녀가 능숙한 손길로 당신의 두건을 고쳐 씌운다.\n\n\u201c고개는 숙이고, 눈은 마주치지 말고, 시키면 군말 없이 할 것. \u2014 하인의 세 가지 규칙이에요.\u201d",
+          left:  { label: "\u201c왜 이렇게까지 도와주는 거요?\u201d", suspicion: 0, trust: 1, next: "gate",
+                   result: "그녀의 손이 잠깐 멈춘다. \u201c…글쎄요. 먼 데서 온 사람은 처음이라서요.\u201d 대답이 되지 않는 대답이었다." },
+          right: { label: "말없이 고개를 끄덕인다", suspicion: 0, trust: 0, next: "gate",
+                   result: "\u201c말수가 적은 건 하인한테 미덕이죠.\u201d 그녀가 만족스럽게 웃는다." } },
+        { id: "gate", speaker: "문지기",
+          text: "성문 앞, 창을 든 문지기가 행렬을 훑는다.\n\n\u201c거기 둘. 어느 댁 사람이냐?\u201d",
+          left:  { label: "\u201c주방 일손이오\u201d 고개를 숙인다", suspicion: -1, trust: 0, next: "feast",
+                   result: "문지기가 심드렁하게 손을 젓는다. 잔칫날 주방 일손은 넘쳐나는 법이다." },
+          right: { label: "\u201c신부 댁 손님이오\u201d", suspicion: 2, trust: 0, next: "feast",
+                   result: "문지기의 눈썹이 올라간다. \u201c손님이 하인 두건을 쓰고?\u201d 그녀가 재빨리 당신의 팔을 꼬집으며 웃어넘긴다." } },
+        { id: "feast", speaker: "집사",
+          text: "연회장은 촛불과 웃음소리로 가득하다. 그때 집사가 당신의 어깨를 붙든다.\n\n\u201c거기 너! 놀고 있지 말고 와인 시중을 들어라.\u201d",
+          left:  { label: "잔을 받아 든다", suspicion: 0, trust: 0, next: "wine",
+                   result: "그녀가 눈짓한다. \u2014 신방 행렬 때 다시 만나요. 당신은 무거운 주전자를 받아 든다." },
+          right: { label: "행렬 쪽으로 슬쩍 빠진다", suspicion: 1, trust: 0, next: "slip",
+                   result: "집사가 미간을 찌푸리며 당신의 뒷모습을 노려본다. \u201c…요즘 것들은.\u201d" } },
+
+        { id: "wine", speaker: "귀족",
+          text: "잔을 채우는 당신을 귀족 하나가 물끄러미 본다.\n\n\u201c처음 보는 얼굴이군. 어느 댁에서 왔지?\u201d",
+          left:  { label: "고개만 깊이 조아린다", suspicion: -1, trust: 0, next: "bedchamber",
+                   result: "귀족이 흥미를 잃고 술잔으로 눈을 돌린다. 하인은 대답보다 침묵이 어울리는 법." },
+          right: { label: "\u201c주방에 새로 왔습니다\u201d", suspicion: 1, trust: 0, next: "bedchamber",
+                   result: "\u201c…하인이 묻지도 않은 말을 하는군.\u201d 귀족이 잔을 든 채 당신을 한 번 더 훑는다." } },
+
+        { id: "slip", speaker: "그녀",
+          text: "촛불을 든 행렬 틈, 그녀가 어느새 곁에 붙는다.\n\n\u201c간도 크셔라. 집사 눈 밖에 나면 이 성에선 하루도 못 버텨요.\u201d 속삭이는 목소리에 웃음기가 섞여 있다.",
+          left:  { label: "\u201c당신 곁이 더 안전할 것 같아서\u201d", suspicion: 0, trust: 1, next: "bedchamber",
+                   result: "그녀가 촛불 뒤에서 피식 웃는다. \u201c…말은 잘하시네요.\u201d" },
+          right: { label: "\u201c구경은 가까이서 해야지\u201d", suspicion: 0, trust: 0, next: "bedchamber",
+                   result: "\u201c구경값은 목숨으로 치르실 텐데.\u201d 그녀가 어깨를 으쓱한다." } },
+
+        { id: "bedchamber", speaker: "",
+          text: "신랑과 신부가 하얀 잠옷 차림으로 침대에 오르자, 사제가 침대를 축복한다. 향신료 넣은 와인이 돌고, 들러리들이 부부의 양말을 던지기 시작한다.\n\n빗나간 양말 한 짝이 당신의 발치에 툭 떨어진다.",
+          left:  { label: "발로 슬쩍 밀어 둔다", suspicion: 0, trust: 0, next: "maid",
+                   result: "아무도 눈치채지 못한다. 양말을 맞은 들러리 하나가 환호성을 지른다. \u2014 다음 차례는 저 사람인 모양이다." },
+          right: { label: "주워서 들러리에게 건넨다", suspicion: 1, trust: 0, next: "maid",
+                   result: "들러리들이 까르르 웃는다. \u201c하인 주제에 눈치도 빠르네!\u201d 순간, 방 안의 시선 몇이 당신에게 머문다." } },
+        { id: "maid", speaker: "늙은 시녀",
+          text: "휘장이 쳐지고 사람들이 물러나기 시작할 때, 늙은 시녀 하나가 길을 막아선다.\n\n가늘게 뜬 눈이 당신과 그녀를 번갈아 본다. \u201c…너희, 이 댁 사람이 아니지?\u201d",
+          left:  { label: "그녀에게 눈짓한다", suspicion: 0, trust: 1, next: "escape4",
+                   result: "\u201c마님 심부름으로 온 삯일꾼이에요. 잔칫날 일손이 어디 안 부족하답니까?\u201d 그녀의 능청에 시녀가 마지못해 비켜선다." },
+          right: { label: "\u201c주방에서 새로 왔습니다\u201d", suspicion: 1, trust: 0, next: "escape4",
+                   mod: [{ flag: "literate", suspicion: 1,
+                           add: "\u201c…그러고 보니, 글 읽을 줄 아는 하인이 있다던데. 자네인가?\u201d" }],
+                   result: "\u201c주방? 요한 영감이 새 일손을 들였다는 말은 못 들었는데.\u201d 시녀의 눈이 더 가늘어진다. 그녀가 서둘러 당신을 잡아끈다." } },
+        { id: "escape4", speaker: "그녀",
+          text: "성벽 그늘, 겨우 한숨을 돌린다. 그녀가 웃음을 터뜨린다.\n\n\u201c사람들은 부러워하지만, 정작 저 안에 있는 이들은 외롭답니다. \u2014 신부가 신랑 얼굴을 오늘 처음 봤다는 거, 아세요?\u201d",
+          left:  { label: "\u201c그럼 사랑은 어디에 있소?\u201d", suspicion: 0, trust: 1, next: "END",
+                   result: "그녀가 잠시 말이 없다. \u201c…글쎄요. 적어도 저 침실엔 없겠죠.\u201d" },
+          right: { label: "\u201c그래도 배는 부르겠지\u201d", suspicion: 0, trust: 0, next: "END",
+                   result: "\u201c그건 그래요.\u201d 그녀가 어이없다는 듯 웃는다. \u201c당신, 생각보다 이 동네 사람 같네요.\u201d" } }
+      ],
+      record: {
+        title: "귀족의 결혼식",
+        confirmed: "침실 의식(bedding ceremony)은 중세부터 근세까지 유럽에 실재한 혼인 관습이다. 잉글랜드에서는 사제가 침대를 축복하고, 부부가 향신료를 넣은 축복주(benediction posset)를 마셨으며, 들러리들이 부부의 양말을 던져 맞히면 던진 사람이 곧 결혼할 징조로 여겼다. 하객이 부부가 함께 침소에 든 것을 확인하는 절차는 훗날의 혼인 무효 주장에 맞서 혼인의 유효성을 보증하는 법적 장치이기도 했다. 이 관습은 17세기 말경 사라졌다.",
+        disputed: "양말 던지기의 세부 형태는 주로 근세(튜더 시대 이후) 기록과 민속 연구(조지 몽거)에 기댄 것으로, 14세기에 정확히 같은 형태였는지는 확인하지 못했다. 하객이 합방 자체를 지켜봤다는 주장은 왕족 등 드문 경우를 제외하면 근거가 약하다. 하인으로 위장한 잠입 이야기는 극적 창작이다."
+      }
+    },
+    {
+      label: "장면 6", title: "산파의 집",
+      art: { file: "Niccolò da Bologna - Birth of John the Baptist, National Gallery of Art, Washington DC, miniature on vellum, late 14th cent.jpg",
+             caption: "세례자 요한의 탄생, 니콜로 다 볼로냐(14세기 말) — 워싱턴 국립미술관, 퍼블릭 도메인" },
+      intro: "작은 집 앞에 사람들이 몰려 있다. 안에서는 산모의 힘겨운 신음과 기도 소리가 함께 새어 나온다.\n\n그녀의 걸음이 멈춘다. \u201c…아이가 태어나려나 봐요.\u201d",
+      cards: [
+        { id: "door", speaker: "산파",
+          text: "문이 벌컥 열리고, 소매를 걷어붙인 산파가 외친다.\n\n\u201c더운물! 그리고 일손 둘! \u2014 여자만!\u201d 그녀가 곧장 나선다.",
+          left:  { label: "따라 들어가려 한다", suspicion: 1, trust: 0,
+                   result: "산파가 기겁하며 당신의 가슴을 밀친다. \u201c사내가 어딜 산실에! 부정 탈 일 있나!\u201d 문이 코앞에서 쾅 닫힌다." },
+          right: { label: "물을 길어다 문 앞에 둔다", suspicion: -1, trust: 0,
+                   result: "산파가 물동이를 낚아채며 처음으로 당신을 제대로 본다. \u201c…쓸 만한 사내네.\u201d" } },
+        { id: "candle", speaker: "이웃 아낙",
+          text: "문 밖에 남은 이들이 초에 불을 붙인다. 한 아낙이 당신에게도 초를 쥐여준다.\n\n\u201c성 마가렛께 빌어요. 산모를 지켜주시는 분이니.\u201d",
+          left:  { label: "초를 받아 함께 빈다", suspicion: -1, trust: 0,
+                   result: "낯선 기도문이지만, 웅얼거림에 몸을 맡긴다. 아낙이 흡족하게 고개를 끄덕인다." },
+          right: { label: "\u201c의원은 부르지 않소?\u201d", suspicion: 2, trust: 0,
+                   result: "아낙이 별소리를 다 듣는다는 얼굴이 된다. \u201c의원? 아이 낳는 데 사내 의원이 왜 와요?\u201d" } },
+        { id: "girdle", speaker: "이웃 아낙",
+          text: "한 아낙이 낡은 두루마리 천을 조심스레 펼친다.\n\n“수도원에서 빌려온 성 마가렛의 허리띠예요. 산모 배에 둘러야 순산한다니, 어서 안으로.” 천을 당신에게 내민다.",
+          left:  { label: "두 손으로 받들어 건넨다", suspicion: -1, trust: 0,
+                   result: "당신이 천을 공손히 받드는 모습에 아낙들이 안심한다. 귀한 성물을 다루는 법을 아는 자로 보인 것이다." },
+          right: { label: "“이런 천 조각이 무슨 소용이오”", suspicion: 2, trust: 0,
+                   result: "방 안이 찬물을 끼얹은 듯 조용해진다. 성물을 의심하는 말은, 이 시대에 가장 위험한 말 중 하나다." } },
+        { id: "water", speaker: "산파",
+          text: "산파가 문틈으로 다시 외친다.\n\n“물! 더운물이 계속 필요해! 게으름 피우는 손은 필요 없어!” 화덕의 솥이 김을 뿜는다.",
+          left:  { label: "말없이 물을 길어 나른다", suspicion: -1, trust: 1,
+                   result: "몇 번을 오가자 산파의 말투가 누그러진다. 여기선 백 마디 변명보다 물 한 동이가 당신을 증명한다." },
+          right: { label: "어정쩡하게 서 있는다", suspicion: 1, trust: 0,
+                   result: "손을 놓고 선 낯선 사내에게 눈총이 쏟아진다. “쓸모없으면 나가기라도 하든가.”" } },
+        { id: "sister", speaker: "그녀",
+          text: "이윽고 \u2014 가늘고 힘찬 울음소리가 담을 넘는다. 문이 열리고, 그녀가 지친 얼굴로 나온다.\n\n\u201c…둘 다 무사해요.\u201d 그리고 한참 뒤에 덧붙인다. \u201c저는 예전에, 동생을 이렇게 보냈거든요. 산모도 아이도, 둘 다요.\u201d",
+          left:  { label: "말없이 곁에 서 있는다", suspicion: 0, trust: 1,
+                   result: "그녀는 한동안 말이 없다. 침묵을 깨지 않는 당신에게, 그녀가 아주 작게 \u201c고마워요\u201d 한다." },
+          right: { label: "\u201c당신 탓이 아니오\u201d", suspicion: 0, trust: 0,
+                   result: "\u201c…그걸 당신이 어떻게 알아요.\u201d 그녀가 씁쓸하게 웃는다. 위로가 늘 위로가 되는 건 아니다." } }
+      ],
+      record: {
+        title: "산파의 집",
+        confirmed: "중세의 출산은 산파가 주도하는 여성들의 영역이었고, 남성은 산실에서 배제되는 것이 통례였다. 의사와 병원이 개입하지 않는 출산에서 산파는 약초와 경험으로 산모를 도왔고, 출산의 수호성인 성 마가렛에게 기도하는 관습이 널리 퍼져 있었다.",
+        disputed: "\u2018산파들이 마녀사냥의 주된 표적이 되었다\u2019는 통설(원본 영상에도 등장)은 사학계에서 반박되었다. 데이비드 할리(1990)의 1차 사료 검토에 따르면 산파가 마녀로 고발된 비율은 다른 직업군보다 높지 않았고, \u2018산파 마녀\u2019 상은 후대에 만들어진 신화에 가깝다는 것이 현재의 다수 견해다. 출산 합병증이 당시 여성 사망 원인 1위였다는 수치도 원 사료로 확인하지 못했다."
+      }
+    },
+    {
+      label: "장면 7", title: "병자의 골목",
+      art: { file: "Leper in costume with clapper Wellcome M0001065.jpg",
+             caption: "딱따기를 든 나환자 — 웰컴 컬렉션 (Wikimedia Commons)" },
+      intro: "골목이 좁아지자, 어디선가 나무 부딪는 소리가 들려온다.\n\n딱. 딱. 딱. \u2014 일정한 간격의, 메마른 소리.",
+      cards: [
+        { id: "clapper", speaker: "",
+          text: "회색 두건에 얼굴을 반쯤 가린 남자가 목제 딱따기를 흔들며 다가온다.\n\n사람들이 말없이 벽 쪽으로 붙는다.",
+          left:  { label: "사람들을 따라 벽 쪽으로 비켜선다", suspicion: 0, trust: 0,
+                   result: "남자가 눈을 내리깐 채 길 한가운데를 지나간다. 아무도 그를 보지 않고, 모두가 그를 의식한다." },
+          right: { label: "길 한가운데 그대로 선다", suspicion: 2, trust: 0,
+                   result: "곁의 노파가 기겁하며 당신의 소매를 잡아챈다. \u201c미쳤어?! 문둥병이야!\u201d" } },
+        { id: "alms", speaker: "그녀",
+          text: "남자가 멀찍이 멈춰 서더니, 긴 막대 끝에 매단 그릇을 내민다.\n\n그녀가 낮게 속삭인다. \u201c나병 환자예요. 닿으면 안 돼요. …하지만 저 그릇에 적선하는 건 큰 공덕으로 쳐요.\u201d",
+          left:  { label: "품에 남은 동전을 그릇에 넣는다", suspicion: 0, trust: 1, coins: -1, need: "coins",
+                   fail: { trust: 0, suspicion: 0,
+                           result: "주머니를 뒤졌지만 아무것도 없다. 그녀가 조용히 자기 동전을 대신 넣는다. \u2014 그 눈빛을 마주 볼 수 없었다." },
+                   result: "남자가 갈라진 목소리로 축복의 기도를 읊는다. 병자의 기도는 하늘에 더 잘 닿는다고들 했다." },
+          right: { label: "고개를 숙이고 지나친다", suspicion: 0, trust: 0,
+                   result: "그릇이 빈 채로 흔들린다. 딱따기 소리가 등 뒤에서 다시 시작된다." } },
+        { id: "child", speaker: "",
+          text: "한 아이가 나병 환자 쪽으로 다가가려 하자, 어미가 기겁하며 아이를 낚아챈다.\n\n아이가 당신을 올려다보며 묻는다. “아저씨, 저 사람은 왜 얼굴을 가려요?”",
+          left:  { label: "“아픈 것뿐이란다” 조용히 답한다", suspicion: 0, trust: 1,
+                   result: "어미가 흠칫 당신을 본다. 나무라지도 편들지도 않는 대답에, 아이가 고개를 끄덕인다." },
+          right: { label: "“가까이 가면 너도 저리 된다”", suspicion: -1, trust: 0,
+                   result: "어미가 격하게 고개를 끄덕인다. 골목의 상식에 맞장구친 당신을, 사람들이 한편으로 여긴다." } },
+        { id: "shelter", speaker: "",
+          text: "골목 끝, 나지막한 돌 건물 앞에 나무 십자가가 서 있다.\n\n곁의 사내가 일러준다. “나환자 요양원이오. 저 안 사람들은 산 채로 장례를 치른 몸이지. …그래도 자선은 저기로 가야 공덕이 크다오.”",
+          left:  { label: "문 앞 헌금함에 동전을 넣는다", suspicion: -1, trust: 0, coins: -1, need: "coins",
+                   fail: { suspicion: 0, trust: 0,
+                           result: "빈 주머니뿐이다. 사내가 어깨를 으쓱한다. “마음이야 있겠지.”" },
+                   result: "지나던 이들이 신심 깊은 순례자를 보듯 고개를 끄덕인다." },
+          right: { label: "말없이 지나친다", suspicion: 0, trust: 0,
+                   result: "돌 건물 안에서 딱따기 소리가 희미하게 새어 나온다. 당신은 걸음을 재촉한다." } },
+        { id: "after6", speaker: "그녀",
+          text: "골목을 벗어나자 그녀가 입을 연다.\n\n\u201c성한 사람도 하루아침에 저리 돼요. 그럼 어제까지 웃던 이웃들이, 딱따기 소리만 듣고 도망가죠.\u201d",
+          left:  { label: "\u201c병은 죄가 아니오\u201d", suspicion: 0, trust: 1,
+                   result: "그녀가 걸음을 멈추고 당신을 빤히 본다. \u201c…여기 사람들 절반은 그 말에 동의하지 않을 거예요. 저는 해요.\u201d" },
+          right: { label: "\u201c무서운 건 어쩔 수 없지\u201d", suspicion: 0, trust: 0,
+                   result: "\u201c…솔직하시네요.\u201d 그녀가 피식 웃는다. \u201c하긴, 겁 없는 사람보단 낫죠.\u201d" } }
+      ],
+      record: {
+        title: "병자의 골목",
+        confirmed: "나병(한센병) 환자는 공공장소에서 목제 딱따기나 방울을 울려 자신의 접근을 알리고, 구별되는 복장을 입도록 요구받았다. 1179년 제3차 라테란 공의회는 환자 격리를 공식화했고, 13세기 잉글랜드에는 약 300곳의 나환자 요양원(leprosaria)이 있었다. 다만 딱따기는 격리의 표지인 동시에 적선을 청하는 도구이기도 했고, 나환자에게 자선을 베푸는 것은 경건한 행위로 여겨졌다.",
+        disputed: "원본 영상이 다룬 매독과 수은 치료는 15세기 말 이후의 일로, 14세기 배경에는 시대착오다. 그래서 이 장면은 나병으로 바꿨다. 나환자를 향한 태도가 공포와 배제 일변도였다는 통념도 최근 연구에서는 재검토되고 있다."
+      }
+    },
+    {
+      label: "장면 8", title: "탈출",
+      intro: "달빛 아래, 그녀가 걸음을 멈춘다.\n\n\u201c이제 가봐야 할 것 같아요.\u201d\n\n그 눈 속에 스치는 아쉬움을 읽으려는 순간 \u2014 등 뒤에서 고함이 터진다.",
+      cards: [
+        { id: "shout", speaker: "",
+          text: "\u201c저 이방인이 영주님의 신방을 모독했다! 첩자다! 잡아라!\u201d\n\n횃불이 하나둘 모여든다. 그런데 \u2014 저 고함 소리, 어딘가 낯익다.",
+          left:  { label: "그녀의 손을 잡고 달린다", suspicion: 1, trust: 0, next: "chase",
+                   mod: [{ flag: "bribed", suspicion: 1,
+                           add: "군중 속에 목욕탕 관리인의 얼굴이 보인다. \u201c저놈이야! 나한테 돈을 찔러주려던 놈!\u201d" },
+                         { flag: "gambled", suspicion: 1,
+                           add: "주사위판의 사내들도 섞여 있다. 오늘 잃은 판을 기억하는 얼굴로." },
+                         { flag: "marked", suspicion: 1,
+                           add: "군중 속에 그 소환리가 있다. “저자다! 미사 중에 성체도 몰라보던 이방인!”" }],
+                   result: "골목이 뒤흔들린다. 수십의 발소리가 뒤를 쫓는다." },
+          right: { label: "돌아서서 목소리의 주인을 찾는다", suspicion: 0, trust: 0,
+                   next: { flag: "sawFace", then: "expose", else: "graze" },
+                   result: "군중 틈, 고함치는 사내의 얼굴이 횃불 빛에 드러난다." } },
+
+        { id: "expose", speaker: "",
+          text: "\u2014 목욕탕 앞에서 슬그머니 사라지던, 바로 그 얼굴이다.\n\n\u201c저놈이다! 목욕탕에서 도둑 누명을 씌우고 달아난 놈!\u201d 당신의 외침에 군중 몇이 멈칫하며 사내를 돌아본다.",
+          left:  { label: "그 틈에 달린다", suspicion: -2, trust: 0, next: "chase",
+                   result: "\u201c어, 어라? 그러고 보니…\u201d 군중이 술렁이는 사이, 당신들은 어둠 속으로 미끄러진다." },
+          right: { label: "\u201c저놈을 잡으시오!\u201d", suspicion: -1, trust: 0, next: "chase",
+                   result: "군중의 절반이 사내에게 몰려간다. 하지만 나머지 절반의 눈은 여전히 당신을 향해 있다." } },
+        { id: "graze", speaker: "",
+          text: "낯선 얼굴이다. 기억을 뒤져봐도 짚이는 데가 없다.\n\n망설이는 사이, 군중과의 거리가 좁혀진다.",
+          left:  { label: "이제야 달린다", suspicion: 1, trust: 0, next: "chase",
+                   result: "\u201c저기 간다!\u201d 아까운 시간을 잃었다." },
+          right: { label: "두 손을 들어 보인다", suspicion: 2, trust: 0, next: "chase",
+                   result: "\u201c순순히 잡힐 놈이 첩자 짓을 해?\u201d 돌멩이 하나가 귓가를 스친다. 그녀가 당신을 잡아끈다." } },
+
+        { id: "chase", speaker: "그녀",
+          text: "그녀가 앞장서 달리며 외친다.\n\n\u201c이쪽! \u2014 아니, 잠깐!\u201d 길 한복판에 짐수레가 쓰러져 있다. 왼쪽은 수레 너머 큰길, 오른쪽은 그녀가 가리키는 샛길이다.",
+          left:  { label: "수레를 뛰어넘어 큰길로", suspicion: 1, trust: 0, next: "forest",
+                   result: "수레를 넘다 발목이 꺾일 뻔했다. 큰길은 달빛이 너무 밝다." },
+          right: { label: "그녀를 따라 샛길로", suspicion: -1, trust: 1, next: "forest",
+                   result: "샛길은 그녀의 손바닥 안이었다. 횃불 소리가 조금씩 멀어진다." } },
+        { id: "forest", speaker: "",
+          text: "숲 어귀. 가시덤불이 앞을 막고, 등 뒤에선 다시 횃불이 흔들린다.\n\n덤불 너머, 나무 사이에 숨겨둔 타임머신의 윤곽이 보인다.",
+          left:  { label: "덤불을 헤치며 앞장선다", suspicion: 0, trust: 0, next: "machine",
+                   result: "가시가 소매를 찢는다. 당신이 연 길로 그녀가 따라 들어온다." },
+          right: { label: "그녀를 먼저 들여보낸다", suspicion: 1, trust: 1, next: "machine",
+                   result: "\u201c…이 와중에 양보라니.\u201d 그녀가 어이없어하면서도 몸을 숙여 덤불로 뛰어든다. 그 몇 초만큼 횃불이 가까워졌다." } },
+        { id: "machine", speaker: "",
+          text: "타임머신에 손이 닿는다. 군중의 함성이 코앞이다.\n\n출발까지 남은 시간은 없다. 그녀가 헐떡이며 당신을 본다.",
+          left:  { label: "\u201c함께 가요!\u201d 손을 내민다", suspicion: 0, trust: 0, ending: "tryTogether",
+                   result: "찰나의 순간, 그녀의 눈이 크게 흔들린다." },
+          right: { label: "혼자 오른다 \u2014 \u201c미안하오\u201d", suspicion: 0, trust: 0, ending: "alone",
+                   result: "그녀가 무어라 외치지만, 빛이 이미 사방을 삼키고 있다." } }
+      ],
+      record: {
+        title: "탈출",
+        confirmed: "이 장면의 추격극은 창작이다. 다만 중세 도시의 밤이 통제의 시간이었다는 것은 사실이며, 앞서 확인한 1391년 런던 조례는 해질녘부터 해뜰녘까지 뱃사공이 스튜로 사람을 실어 나르는 것 자체를 금지했다. \u2014 여기까지가 1화다.",
+        disputed: "통금 종(커퓨)의 구체적 운영 방식과 어원 등은 이번 검증 범위에 넣지 않았다. 다음 화를 만든다면 확인할 것."
+      }
+    }
+  ],
+  endings: {
+    together: { title: "함께 탈출", text: "숲에 다다르자 그녀가 먼저 타임머신에 뛰어오른다. 눈부신 빛이 두 사람을 삼킨다.\n\n— 신뢰 루트 엔딩" },
+    alone:    { title: "홀로 탈출", text: "돌아보니 그녀는 군중에게 붙잡혀 멀어져 간다. 빛이 당신 혼자만을 삼킨다.\n\n— 기본 엔딩" },
+    caught:   { title: "붙잡히다", text: "군중이 당신을 에워싼다. 이 시대의 규칙을 몰랐던 대가다.\n\n— 게임 오버" },
+    vindicated:     { title: "누명을 벗기고", text: "숲에 다다르자 그녀가 먼저 타임머신에 뛰어오른다.\n\n뒤에서는 진짜 도둑이 군중에게 붙들려 끌려가는 소리가 들린다. 당신이 기억해 둔 그 얼굴이다. 누명은 이제 임자를 찾았다.\n\n눈부신 빛이 두 사람을 삼킨다. 이번만은, 아무것도 등 뒤에 남기지 않았다.\n\n— 진실 엔딩" },
+    togetherNarrow: { title: "숨 막히는 탈출", text: "그녀의 손을 붙든 채 덤불을 헤친다. 횃불이 등을 태울 듯 가깝다.\n\n타임머신에 두 사람이 겹쳐 쓰러지듯 오른 순간, 창끝이 허공을 가른다. 빛이 터지고 — 세상이 뒤집힌다.\n\n간발의 차였다. 심장이 아직도 그 골목에 남아 뛰는 것 같다.\n\n— 신뢰 루트 엔딩 (아슬아슬)" },
+    forsaken:       { title: "그녀를 두고", text: "당신은 혼자 타임머신에 오른다. 내민 손을 잡지 않았다.\n\n그녀가 무어라 외치지만, 빛이 이미 사방을 삼킨다. 마지막으로 본 것은, 원망도 놀람도 아닌 — 체념한 얼굴이었다.\n\n돌아온 시대에서도, 그 얼굴은 오래 지워지지 않았다.\n\n— 선택 엔딩" }
+  },
+  caughtEndings: [
+    { title: "주인 없는 떠돌이",
+      text: "관리들이 당신의 팔을 붙든다. \u201c어느 주인을 섬기는 자냐? 증명할 자가 있나?\u201d\n\n아무 이름도 댈 수 없는 당신은 떠돌이로 묶여 끌려간다. 이 시대에 \u2018소속 없는 낯선 자\u2019보다 위험한 신분은 없었다.\n\n— 게임 오버 · 시장 거리에서" },
+    { title: "뒷골목의 법",
+      text: "골목의 사내들이 당신을 담벼락 안쪽으로 끌고 들어간다. 이 거리에는 이 거리의 법이 있고, 관리는 오지 않는다.\n\n정신을 차렸을 때, 당신은 빈 몸으로 강가에 누워 있다. 타임머신이 있는 숲까지는, 너무 멀다.\n\n— 게임 오버 · 그로프 레인에서" },
+    { title: "뉴게이트",
+      text: "\u201c도둑은 목을 매다는 법이지.\u201d\n\n누명은 벗겨지지 않았다. 당신은 뉴게이트 감옥의 어둠 속에서 재판 날을 기다린다. 이 시대, 12펜스어치를 훔친 자의 목숨은 12펜스보다 가벼웠다.\n\n— 게임 오버 · 공중목욕탕 앞에서" },
+    { title: "신성 모독",
+      text: "“이방인이 미사를 더럽혔다! 성체 앞에 무릎도 꿇지 않은 자다!”\n\n검은 옷의 소환리가 당신을 교회 법정으로 끌고 간다. 이 시대에 신을 모른다는 것은, 곧 사람이 아니라는 뜻이기도 했다.\n\n— 게임 오버 · 성 바오로 대성당에서" },
+    { title: "영주의 지하",
+      text: "\u201c혼인 첫날밤에 숨어든 첩자라.\u201d\n\n영주의 병사들이 당신을 성 아래 어둠으로 끌고 내려간다. 돌계단이 끝나는 곳에서, 빛도 함께 끝난다.\n\n— 게임 오버 · 귀족의 결혼식에서" },
+    { title: "악한 눈",
+      text: "\u201c저 사내가 산실을 넘봤다. 산모에게 악한 눈을 씌우려던 게 분명해!\u201d\n\n수군거림은 삽시간에 확신이 된다. 당신은 교회 법정으로 끌려간다. 낯선 자에 대한 두려움은, 언제나 이유를 나중에 찾는다.\n\n— 게임 오버 · 산파의 집에서" },
+    { title: "딱따기",
+      text: "\u201c저자가 문둥병자와 닿았다! 얼굴을 봐, 반점이 있잖아!\u201d\n\n있지도 않은 반점을 모두가 보았다고 말한다. 당신의 손에 목제 딱따기가 쥐어지고, 요양원의 문이 등 뒤에서 닫힌다.\n\n— 게임 오버 · 병자의 골목에서" },
+    { title: "강령술사",
+      text: "군중이 숲을 뒤져 그것을 찾아냈다. 쇠와 유리로 된, 이 세상 물건이 아닌 기계.\n\n\u201c강령술이다! 악마의 기계다!\u201d\n\n당신은 이제 첩자가 아니라 요술사다. 그리고 이 시대는, 요술사를 어떻게 다루는지 알고 있다.\n\n— 게임 오버 · 탈출 직전에" }
+  ]
+};
+
+/* ============================================================
+   상태
+   ============================================================ */
+const S = { scene: 0, cardId: null, step: 0, suspicion: 0, trust: 0, coins: 3,
+            locked: false, lastResult: null, records: [], flags: new Set(),
+            queue: [], current: null, showingRandom: false, usedRandom: new Set() };
+
+const $ = id => document.getElementById(id);
+const el = {
+  topLabel: $("topLabel"), gauge: $("gauge"), feedback: $("feedback"),
+  progress: $("progress"), cardZone: $("cardZone"), card: $("card"),
+  cardInner: $("cardInner"), fx: $("fx"), cardArt: $("cardArt"),
+  resultLine: $("resultLine"), speaker: $("speaker"), cardText: $("cardText"),
+  btnLeft: $("btnLeft"), btnRight: $("btnRight"), panel: $("panel")
+};
+
+/* ============================================================
+   효과음 (Web Audio API 즉석 합성 · 외부 음원 없음)
+   - 기능 감지/try-catch 가드: 미지원·실패 시 모든 호출 조용히 no-op
+   - iOS 언락: 첫 제스처에서 ctx.resume() 1회
+   - 음소거: 메모리 변수, 기본 켜짐
+   ============================================================ */
+const SFX = (function () {
+  var ctx = null, ok = true, muted = false, unlocked = false;
+  function getCtx() {
+    if (ctx) return ctx;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) { ok = false; return null; }
+      ctx = new AC();
+    } catch (e) { ok = false; ctx = null; }
+    return ctx;
+  }
+  function tone(o) {
+    if (muted || !ok) return;
+    var c = getCtx(); if (!c) return;
+    try {
+      var t = c.currentTime, dur = o.dur || 0.2, vol = (o.vol != null ? o.vol : 0.1);
+      var osc = c.createOscillator(), g = c.createGain();
+      osc.type = o.type || "sine";
+      osc.frequency.setValueAtTime(o.f0, t);
+      if (o.f1 != null) osc.frequency.exponentialRampToValueAtTime(Math.max(1, o.f1), t + dur);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(g); g.connect(c.destination);
+      osc.start(t); osc.stop(t + dur + 0.03);
+    } catch (e) {}
+  }
+  function chord(freqs, dur, vol, type) {
+    for (var i = 0; i < freqs.length; i++) {
+      (function (f, i) { setTimeout(function () { tone({ f0: f, dur: dur, vol: vol, type: type }); }, i * 45); })(freqs[i], i);
+    }
+  }
+  return {
+    unlock: function () {
+      if (unlocked) return;
+      var c = getCtx();
+      if (c && c.state === "suspended") { try { c.resume(); } catch (e) {} }
+      unlocked = true;
+    },
+    toggleMute: function () { muted = !muted; return muted; },
+    isMuted: function () { return muted; },
+    isOk: function () { return ok; },
+    swipe: function (dir) { tone({ type: "triangle", f0: dir === "left" ? 330 : 390, f1: dir === "left" ? 230 : 290, dur: 0.09, vol: 0.06 }); },
+    suspicion: function () { tone({ type: "sine", f0: 200, f1: 90, dur: 0.34, vol: 0.10 }); },
+    trust: function () { chord([523.25, 659.25, 783.99], 0.5, 0.05, "sine"); },
+    coin: function () { tone({ type: "square", f0: 1250, f1: 1750, dur: 0.05, vol: 0.045 }); setTimeout(function () { tone({ type: "square", f0: 1650, f1: 2150, dur: 0.045, vol: 0.035 }); }, 55); },
+    transition: function () { tone({ type: "sine", f0: 300, f1: 520, dur: 0.5, vol: 0.045 }); },
+    endWin: function () { chord([523.25, 659.25, 783.99, 1046.5], 0.8, 0.07, "sine"); },
+    endCaught: function () { tone({ type: "sine", f0: 165, f1: 55, dur: 1.1, vol: 0.10 }); setTimeout(function () { tone({ type: "triangle", f0: 110, f1: 44, dur: 1.0, vol: 0.07 }); }, 90); }
+  };
+})();
+
+/* 첫 사용자 제스처에서 iOS 오디오 언락(1회) */
+(function () {
+  function once() {
+    try { SFX.unlock(); } catch (e) {}
+    ["pointerdown", "touchstart", "click"].forEach(function (ev) { document.removeEventListener(ev, once, true); });
+  }
+  ["pointerdown", "touchstart", "click"].forEach(function (ev) { document.addEventListener(ev, once, true); });
+})();
+
+/* 음소거 토글 버튼(기본 켜짐, 우상단 고정) */
+(function () {
+  try {
+    var b = document.createElement("button");
+    b.id = "muteBtn"; b.type = "button"; b.setAttribute("aria-label", "소리 켜기/끄기");
+    b.textContent = "🔊";
+    b.style.cssText = "position:fixed;top:10px;right:10px;z-index:60;width:38px;height:38px;border-radius:50%;border:1px solid #6b5433;background:rgba(244,234,210,0.85);color:#6b5433;font-size:17px;line-height:1;padding:0;cursor:pointer;";
+    b.onclick = function () { var m = SFX.toggleMute(); b.textContent = m ? "🔇" : "🔊"; if (!m) { try { SFX.unlock(); } catch (e) {} } };
+    document.body.appendChild(b);
+  } catch (e) {}
+})();
+
+/* 페이드인 재생 (애니메이션 재트리거) */
+function refade(node) {
+  node.classList.remove("fade-in");
+  void node.offsetWidth;
+  node.classList.add("fade-in");
+}
+
+function findCard(scene, id) {
+  return scene.cards.find(c => c.id === id) || null;
+}
+function nextSequential(scene, id) {
+  const i = scene.cards.findIndex(c => c.id === id);
+  return (i >= 0 && i + 1 < scene.cards.length) ? scene.cards[i + 1].id : "END";
+}
+
+/* ============================================================
+   판화풍 선화 삽화 (내장 SVG — 외부 이미지 불필요)
+   ============================================================ */
+function icon(body, cls) {
+  return '<svg class="' + (cls || 'vignette') + '" viewBox="0 0 120 80">' +
+    '<g fill="none" stroke="#6b5433" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' +
+    body + '</g></svg>';
+}
+const ICONS = {
+  church: '<path d="M60 10 V22 M53 15 H67"/><path d="M38 36 Q38 24 60 24 Q82 24 82 36 V66 H38 Z"/><circle cx="60" cy="42" r="7"/><path d="M52 66 V54 Q60 46 68 54 V66"/>',
+  stall:  '<path d="M20 30 H100 M20 30 Q26 40 32 30 Q38 40 44 30 Q50 40 56 30 Q62 40 68 30 Q74 40 80 30 Q86 40 92 30 Q96 38 100 30"/><path d="M26 30 V62 M94 30 V62 M18 62 H102"/><circle cx="60" cy="51" r="9"/><path d="M53 51 H67"/>',
+  cart:   '<circle cx="46" cy="57" r="12"/><circle cx="46" cy="57" r="3"/><path d="M30 43 H86 M86 43 V57 H60 M86 43 L98 30"/>',
+  purse:  '<path d="M60 14 V26 M52 20 L68 12"/><path d="M48 32 Q60 24 72 32 L74 52 Q60 64 46 52 Z"/><path d="M48 34 H72"/><circle cx="82" cy="62" r="4"/>',
+  bell:   '<path d="M60 14 V22"/><path d="M42 52 Q42 26 60 24 Q78 26 78 52 Z"/><path d="M36 52 H84"/><circle cx="60" cy="61" r="4"/>',
+  sign:   '<path d="M32 14 V70 M32 18 H72 M68 18 V26"/><rect x="48" y="26" width="44" height="20" rx="2"/><path d="M56 36 H84"/>',
+  hood:   '<path d="M40 68 Q40 30 60 24 Q80 30 80 68"/><path d="M48 44 Q60 34 72 44"/><path d="M52 48 Q60 56 68 48"/><path d="M44 38 L52 32 M45 54 L53 47 M76 38 L68 32 M75 54 L67 47"/>',
+  staff:  '<path d="M42 14 V70"/><circle cx="42" cy="14" r="4"/><path d="M58 36 H92 M58 46 H92 M58 56 H82"/>',
+  tub:    '<path d="M32 40 H88 L82 64 H38 Z"/><path d="M40 40 Q60 30 80 40"/><path d="M50 41 V63 M70 41 V63"/>',
+  hands:  '<circle cx="60" cy="40" r="8"/><path d="M60 48 V64 M54 52 L46 60 M66 52 L74 60"/><path d="M18 22 L46 36 M102 22 L74 36 M18 60 L44 50"/>',
+  wall:   '<path d="M28 20 V68 M92 20 V68 M28 20 H92"/><path d="M28 36 H92 M28 52 H92"/><path d="M52 20 V36 M72 36 V52 M52 52 V68"/>',
+  her:    '<circle cx="60" cy="23" r="8"/><path d="M60 31 V42"/><path d="M47 68 L60 40 L73 68 Z"/><path d="M58 38 L44 48 M62 38 L76 44"/>',
+  grip:   '<path d="M20 40 H70"/><path d="M70 32 V48"/><path d="M70 33 Q84 28 90 34 M70 40 Q88 38 94 44 M70 47 Q84 50 88 56"/>',
+  castle: '<path d="M30 68 V30 H42 V22 H50 V30 H70 V22 H78 V30 H90 V68"/><path d="M52 68 V48 Q60 40 68 48 V68"/>',
+  goblet: '<path d="M46 22 H74 L69 40 Q60 47 51 40 Z"/><path d="M60 47 V60 M48 64 H72"/>',
+  candle: '<path d="M55 34 V62 H65 V34"/><path d="M60 16 Q67 25 60 32 Q53 25 60 16"/><path d="M45 62 H75"/>',
+  bed:    '<path d="M28 18 V64 M92 18 V64 M28 18 H92"/><path d="M37 18 Q41 40 37 62 M83 18 Q79 40 83 62"/><path d="M28 52 H92"/><path d="M42 47 Q50 41 58 47"/>',
+  eye:    '<path d="M24 40 Q60 10 96 40 Q60 70 24 40 Z"/><circle cx="60" cy="40" r="10"/><circle cx="64" cy="36" r="3"/>',
+  moon:   '<path d="M80 14 A15 15 0 1 0 95 33 A11 11 0 1 1 80 14"/><path d="M18 68 L34 52 L50 68 H58 L74 54 L90 68"/>',
+  door:   '<path d="M36 68 V34 L60 16 L84 34 V68"/><path d="M52 68 V42 H68 V68"/><circle cx="63" cy="55" r="2"/>',
+  baby:   '<circle cx="60" cy="26" r="9"/><path d="M48 39 Q60 33 72 39 L70 62 Q60 69 50 62 Z"/><path d="M50 47 L70 43 M50 55 L70 51"/>',
+  clap:   '<rect x="46" y="20" width="28" height="30" rx="2"/><path d="M46 29 H74"/><path d="M60 50 V70"/><path d="M80 24 Q87 33 80 42 M87 19 Q96 33 87 47"/>',
+  bowl:   '<path d="M20 66 L82 32"/><path d="M78 24 H100 Q98 38 89 38 Q80 38 78 24"/><circle cx="89" cy="29" r="2"/>',
+  torch:  '<path d="M57 40 V70 M63 40 V70 M55 42 H65"/><path d="M60 12 Q72 24 63 36 Q57 30 59 25 Q51 31 54 38 Q46 26 60 12"/>',
+  wreck:  '<circle cx="32" cy="60" r="10"/><path d="M48 64 L94 42 L100 54 L58 74 Z"/><path d="M70 40 L78 28"/>',
+  thorns: '<path d="M18 60 Q40 28 60 50 Q80 68 102 34"/><path d="M36 44 L41 35 M52 46 L58 39 M74 58 L80 51 M88 48 L94 40"/>',
+  machine:'<circle cx="60" cy="38" r="20"/><ellipse cx="60" cy="38" rx="30" ry="8"/><path d="M48 56 L42 70 M72 56 L78 70"/><path d="M60 27 V38 L68 43"/>',
+  pair:   '<circle cx="42" cy="28" r="7"/><path d="M42 35 V56 M42 41 L32 50 M42 41 L51 47"/><circle cx="78" cy="28" r="7"/><path d="M78 35 V56 M78 41 L88 50 M78 41 L69 45"/>'
+};
+/* 장면별 카드 삽화 매핑 (장면 배열 순서와 동일) */
+const CARD_ICONS = [
+  { m1: "stall", m2: "cart", m3: "purse", m4: "bell", ale: "goblet" },
+  { g1: "pair", g2: "hood", g3: "staff", g4: "sign", waterman: "purse" },
+  { gate: "tub", accuse: "hands", runA: "wall", rescueA: "her",
+    stand: "grip", pleadB: "hands", rescueB: "her", silentC: "eye", rescueC: "her" },
+  { sanctuary: "church", holy_water: "hands", sacring: "bell", her_coach: "her", leave: "church" },
+  { disguise: "hood", gate: "castle", feast: "goblet", wine: "goblet",
+    slip: "candle", bedchamber: "bed", maid: "eye", escape4: "moon" },
+  { door: "door", candle: "candle", sister: "baby", girdle: "hands", water: "tub" },
+  { clapper: "clap", alms: "bowl", after6: "pair", child: "hands", shelter: "wall" },
+  { shout: "torch", expose: "eye", graze: "hands", chase: "wreck",
+    forest: "thorns", machine: "machine" }
+];
+const SCENE_ICONS = ["stall", "sign", "tub", "church", "castle", "door", "clap", "torch"];
+
+/* ============================================================
+   장면 배경 삽화 (판화풍, 내장 SVG)
+   ============================================================ */
+const SKY = {
+  day:  '<stop offset="0" stop-color="#f4ead2"/><stop offset="1" stop-color="#d9c49c"/>',
+  dusk: '<stop offset="0" stop-color="#e5cfa6"/><stop offset="1" stop-color="#c2a173"/>',
+  night:'<stop offset="0" stop-color="#8a7454"/><stop offset="1" stop-color="#5d4c34"/>'
+};
+/* 사람 실루엣 */
+function fig(x, y, s, c) {
+  c = c || "#4a3a24";
+  return '<g fill="' + c + '" transform="translate(' + x + ',' + y + ') scale(' + s + ')">' +
+    '<circle cx="0" cy="-14" r="4.2"/>' +
+    '<path d="M-5 -9 Q0 -11 5 -9 L6 6 L2 6 L1 -1 L-1 -1 L-2 6 L-6 6 Z"/></g>';
+}
+const SCENE_ART = [
+  /* 1 시장 거리 (낮) */
+  '<defs><linearGradient id="sk1" x1="0" y1="0" x2="0" y2="1">' + SKY.day + '</linearGradient></defs>' +
+  '<rect width="320" height="140" fill="url(#sk1)"/>' +
+  '<path d="M148 60 L155 26 L162 60 Z" fill="#c9b287"/><rect x="150" y="60" width="10" height="26" fill="#c9b287"/>' +
+  '<path d="M0 40 L34 26 L68 40 L68 96 L0 96 Z" fill="#b59a70"/>' +
+  '<path d="M60 34 L96 22 L128 36 L128 96 L60 96 Z" fill="#a68a5f"/>' +
+  '<path d="M252 40 L286 26 L320 40 L320 96 L252 96 Z" fill="#b59a70"/>' +
+  '<path d="M196 34 L228 22 L260 36 L260 96 L196 96 Z" fill="#a68a5f"/>' +
+  '<g fill="#7d6543"><rect x="14" y="50" width="9" height="11"/><rect x="42" y="50" width="9" height="11"/>' +
+  '<rect x="76" y="46" width="9" height="11"/><rect x="104" y="46" width="9" height="11"/>' +
+  '<rect x="268" y="50" width="9" height="11"/><rect x="296" y="50" width="9" height="11"/>' +
+  '<rect x="210" y="46" width="9" height="11"/><rect x="238" y="46" width="9" height="11"/></g>' +
+  '<path d="M22 96 L52 78 L104 78 L86 96 Z" fill="#cbb488"/><path d="M52 78 L52 96 M70 78 L62 96 M86 78 L74 96" stroke="#8a7454" stroke-width="1"/>' +
+  '<path d="M298 96 L268 78 L216 78 L234 96 Z" fill="#cbb488"/><path d="M268 78 L268 96 M250 78 L258 96 M234 78 L246 96" stroke="#8a7454" stroke-width="1"/>' +
+  '<rect x="0" y="96" width="320" height="44" fill="#c7b087"/>' +
+  '<g stroke="#a08a63" stroke-width="1" fill="none"><path d="M0 106 Q20 100 40 106 Q60 112 80 106 Q100 100 120 106 Q140 112 160 106 Q180 100 200 106 Q220 112 240 106 Q260 100 280 106 Q300 112 320 106"/>' +
+  '<path d="M0 122 Q24 116 48 122 Q72 128 96 122 Q120 116 144 122 Q168 128 192 122 Q216 116 240 122 Q264 128 288 122 Q304 118 320 122"/></g>' +
+  fig(72, 104, 1.5) + fig(112, 108, 1.7, "#3d3020") + fig(206, 104, 1.4) + fig(248, 110, 1.8, "#3d3020") + fig(160, 100, 1.2, "#5a4830"),
+
+  /* 2 그로프 레인 (해질녘, 좁은 골목) */
+  '<defs><linearGradient id="sk2" x1="0" y1="0" x2="0" y2="1">' + SKY.dusk + '</linearGradient></defs>' +
+  '<rect width="320" height="140" fill="url(#sk2)"/>' +
+  '<path d="M0 0 L104 22 L104 140 L0 140 Z" fill="#9c8158"/>' +
+  '<path d="M320 0 L216 22 L216 140 L320 140 Z" fill="#9c8158"/>' +
+  '<path d="M104 22 L142 44 L142 140 L104 140 Z" fill="#846c48"/>' +
+  '<path d="M216 22 L178 44 L178 140 L216 140 Z" fill="#846c48"/>' +
+  '<g fill="#6d5839"><rect x="24" y="40" width="14" height="18"/><rect x="60" y="52" width="14" height="18"/>' +
+  '<rect x="282" y="40" width="14" height="18"/><rect x="246" y="52" width="14" height="18"/>' +
+  '<rect x="114" y="60" width="11" height="15"/><rect x="195" y="60" width="11" height="15"/></g>' +
+  '<path d="M142 44 L178 44 L178 96 L142 96 Z" fill="#c2a173"/>' +
+  '<path d="M148 30 L148 46 M148 32 H166" stroke="#5a4830" stroke-width="2" fill="none"/>' +
+  '<rect x="156" y="32" width="26" height="14" fill="#d9c49c" stroke="#5a4830" stroke-width="1.5"/>' +
+  '<path d="M160 39 H178" stroke="#8a7454" stroke-width="1.4"/>' +
+  '<circle cx="118" cy="72" r="7" fill="#e8cf94" opacity=".55"/><circle cx="118" cy="72" r="3" fill="#f2e2ba"/>' +
+  '<rect x="0" y="96" width="320" height="44" fill="#8f7752"/>' +
+  '<g stroke="#7a6444" stroke-width="1" fill="none"><path d="M0 112 Q40 106 80 112 Q120 118 160 112 Q200 106 240 112 Q280 118 320 112"/><path d="M0 128 Q48 122 96 128 Q144 134 192 128 Q240 122 288 128 Q304 126 320 128"/></g>' +
+  '<g fill="#3d3020"><path d="M96 128 Q94 108 104 106 Q114 108 112 128 Z"/><circle cx="104" cy="100" r="5"/>' +
+  '<path d="M116 128 Q114 110 123 108 Q132 110 130 128 Z"/><circle cx="123" cy="102" r="5"/></g>' +
+  fig(232, 118, 1.9, "#2f2618") + fig(196, 112, 1.4, "#4a3a24"),
+
+  /* 3 공중목욕탕 (군중) */
+  '<defs><linearGradient id="sk3" x1="0" y1="0" x2="0" y2="1">' + SKY.day + '</linearGradient></defs>' +
+  '<rect width="320" height="140" fill="url(#sk3)"/>' +
+  '<path d="M40 44 L160 12 L280 44 L280 104 L40 104 Z" fill="#ab8f64"/>' +
+  '<path d="M40 44 L160 12 L280 44 Z" fill="#c2a173"/>' +
+  '<path d="M132 104 L132 62 Q160 44 188 62 L188 104 Z" fill="#5d4c34"/>' +
+  '<g fill="#7d6543"><rect x="66" y="58" width="16" height="20"/><rect x="98" y="58" width="16" height="20"/>' +
+  '<rect x="206" y="58" width="16" height="20"/><rect x="238" y="58" width="16" height="20"/></g>' +
+  '<g stroke="#e0d0ae" stroke-width="3" fill="none" opacity=".75" stroke-linecap="round">' +
+  '<path d="M96 40 Q88 28 98 18 Q106 10 100 2"/><path d="M224 40 Q232 28 222 18 Q214 10 220 2"/></g>' +
+  '<rect x="0" y="104" width="320" height="36" fill="#c0a87f"/>' +
+  '<g stroke="#a08a63" stroke-width="1" fill="none"><path d="M0 116 Q40 110 80 116 Q120 122 160 116 Q200 110 240 116 Q280 122 320 116"/><path d="M0 130 Q48 126 96 130 Q160 134 224 130 Q272 126 320 130"/></g>' +
+  fig(48, 122, 1.7, "#3d3020") + fig(80, 126, 2.0, "#2f2618") + fig(112, 122, 1.6, "#4a3a24") +
+  fig(208, 126, 2.0, "#2f2618") + fig(240, 122, 1.7, "#3d3020") + fig(272, 126, 1.9, "#4a3a24") +
+  fig(160, 118, 1.5, "#5a4830"),
+
+  /* 4 성 바오로 대성당 (촛불과 향 연기) */
+  '<defs><linearGradient id="skcath" x1="0" y1="0" x2="0" y2="1">' + SKY.night + '</linearGradient></defs>' +
+  '<rect width="320" height="140" fill="url(#skcath)"/>' +
+  '<g fill="#6b5433"><rect x="10" y="18" width="12" height="98"/><rect x="42" y="26" width="10" height="90"/><rect x="72" y="34" width="9" height="82"/><rect x="298" y="18" width="12" height="98"/><rect x="268" y="26" width="10" height="90"/><rect x="239" y="34" width="9" height="82"/></g>' +
+  '<g fill="none" stroke="#8a7454" stroke-width="2"><path d="M16 30 Q29 8 47 30"/><path d="M47 36 Q61 16 77 36"/><path d="M304 30 Q291 8 273 30"/><path d="M273 36 Q259 16 243 36"/></g>' +
+  '<path d="M132 116 L132 54 Q160 22 188 54 L188 116 Z" fill="#4a3c28"/>' +
+  '<path d="M160 116 V40" stroke="#6b5433" stroke-width="2"/>' +
+  '<circle cx="160" cy="34" r="14" fill="#3a2f20" stroke="#c9b287" stroke-width="1.5"/>' +
+  '<g stroke="#c9b287" stroke-width="1" fill="none"><path d="M160 20 V48 M146 34 H174 M150 24 L170 44 M170 24 L150 44"/></g>' +
+  '<rect x="146" y="99" width="28" height="13" fill="#7d6543"/>' +
+  '<g stroke="#e8c96a" stroke-width="2"><path d="M150 99 V91"/><path d="M170 99 V91"/></g>' +
+  '<circle cx="150" cy="89" r="2" fill="#f2d97a"/><circle cx="170" cy="89" r="2" fill="#f2d97a"/>' +
+  '<rect x="0" y="116" width="320" height="24" fill="#5d4c34"/>' +
+  fig(98, 120, 1.3, "#3d3020") + fig(122, 122, 1.2, "#4a3a24") + fig(198, 120, 1.3, "#3d3020") + fig(222, 122, 1.2, "#4a3a24"),
+
+  /* 4 귀족의 결혼식 (촛불 밝힌 대전) */
+  '<defs><linearGradient id="sk4" x1="0" y1="0" x2="0" y2="1">' + SKY.night + '</linearGradient>' +
+  '<radialGradient id="gl4" cx=".5" cy=".5"><stop offset="0" stop-color="#f0d89a" stop-opacity=".85"/><stop offset="1" stop-color="#f0d89a" stop-opacity="0"/></radialGradient></defs>' +
+  '<rect width="320" height="140" fill="url(#sk4)"/>' +
+  '<g fill="#4a3c26"><path d="M14 116 L14 52 Q38 26 62 52 L62 116 Z"/><path d="M258 116 L258 52 Q282 26 306 52 L306 116 Z"/></g>' +
+  '<g fill="#6b5636"><path d="M24 116 L24 58 Q38 40 52 58 L52 116 Z"/><path d="M268 116 L268 58 Q282 40 296 58 L296 116 Z"/></g>' +
+  '<ellipse cx="160" cy="70" rx="86" ry="52" fill="url(#gl4)"/>' +
+  '<path d="M108 106 L108 42 L212 42 L212 106" fill="#5d4c34"/>' +
+  '<path d="M100 44 H220 L212 30 L108 30 Z" fill="#7d6543"/>' +
+  '<path d="M120 106 L120 56 Q160 44 200 56 L200 106 Z" fill="#8f7752"/>' +
+  '<path d="M132 46 Q136 78 132 106 M188 46 Q184 78 188 106" stroke="#a68a5f" stroke-width="3" fill="none"/>' +
+  '<rect x="128" y="84" width="64" height="22" fill="#d9c49c"/>' +
+  '<g fill="#e8cf94"><circle cx="72" cy="66" r="4"/><circle cx="248" cy="66" r="4"/><circle cx="96" cy="52" r="3"/><circle cx="224" cy="52" r="3"/></g>' +
+  '<rect x="0" y="116" width="320" height="24" fill="#4a3c26"/>' +
+  '<g stroke="#5d4c34" stroke-width="1" fill="none"><path d="M0 126 H320 M40 116 V140 M120 116 V140 M200 116 V140 M280 116 V140"/></g>' +
+  fig(58, 128, 1.7, "#241d12") + fig(262, 128, 1.7, "#241d12") + fig(96, 126, 1.4, "#2f2618") + fig(224, 126, 1.4, "#2f2618"),
+
+  /* 5 산파의 집 (밤, 창의 불빛) */
+  '<defs><linearGradient id="sk5" x1="0" y1="0" x2="0" y2="1">' + SKY.night + '</linearGradient>' +
+  '<radialGradient id="gl5" cx=".5" cy=".5"><stop offset="0" stop-color="#f2dda6" stop-opacity=".9"/><stop offset="1" stop-color="#f2dda6" stop-opacity="0"/></radialGradient></defs>' +
+  '<rect width="320" height="140" fill="url(#sk5)"/>' +
+  '<g fill="#cbb488" opacity=".8"><circle cx="40" cy="24" r="1.6"/><circle cx="86" cy="14" r="1.2"/><circle cx="268" cy="20" r="1.6"/><circle cx="228" cy="12" r="1.2"/><circle cx="300" cy="40" r="1.2"/></g>' +
+  '<path d="M0 96 L0 60 L52 60 L52 96 Z" fill="#3f3320"/>' +
+  '<path d="M268 96 L268 56 L320 56 L320 96 Z" fill="#3f3320"/>' +
+  '<path d="M92 100 L92 54 L160 26 L228 54 L228 100 Z" fill="#5d4c34"/>' +
+  '<path d="M84 58 L160 22 L236 58 Z" fill="#7d6543"/>' +
+  '<ellipse cx="140" cy="76" rx="46" ry="34" fill="url(#gl5)"/>' +
+  '<rect x="124" y="60" width="32" height="26" fill="#f0d89a"/>' +
+  '<path d="M140 60 V86 M124 73 H156" stroke="#7d6543" stroke-width="2"/>' +
+  '<rect x="182" y="70" width="20" height="30" fill="#3f3320"/>' +
+  '<rect x="0" y="100" width="320" height="40" fill="#3f3320"/>' +
+  '<g stroke="#4f402a" stroke-width="1" fill="none"><path d="M0 112 Q40 106 80 112 Q120 118 160 112 Q200 106 240 112 Q280 118 320 112"/></g>' +
+  '<g fill="#e8cf94"><circle cx="64" cy="106" r="3"/><circle cx="252" cy="108" r="3"/></g>' +
+  fig(64, 122, 1.8, "#241d12") + fig(88, 126, 1.6, "#2f2618") + fig(252, 124, 1.8, "#241d12"),
+
+  /* 6 병자의 골목 (벽으로 붙는 사람들) */
+  '<defs><linearGradient id="sk6" x1="0" y1="0" x2="0" y2="1">' + SKY.dusk + '</linearGradient></defs>' +
+  '<rect width="320" height="140" fill="url(#sk6)"/>' +
+  '<path d="M0 0 L88 30 L88 140 L0 140 Z" fill="#8f7752"/>' +
+  '<path d="M320 0 L232 30 L232 140 L320 140 Z" fill="#8f7752"/>' +
+  '<path d="M88 30 L128 52 L128 140 L88 140 Z" fill="#75603f"/>' +
+  '<path d="M232 30 L192 52 L192 140 L232 140 Z" fill="#75603f"/>' +
+  '<path d="M128 52 L192 52 L192 100 L128 100 Z" fill="#a68a5f"/>' +
+  '<g fill="#5d4c34"><rect x="20" y="44" width="14" height="18"/><rect x="56" y="58" width="14" height="18"/>' +
+  '<rect x="286" y="44" width="14" height="18"/><rect x="250" y="58" width="14" height="18"/></g>' +
+  '<rect x="0" y="100" width="320" height="40" fill="#846c48"/>' +
+  '<g stroke="#6d5839" stroke-width="1" fill="none"><path d="M0 114 Q40 108 80 114 Q120 120 160 114 Q200 108 240 114 Q280 120 320 114"/><path d="M0 130 Q48 124 96 130 Q160 136 224 130 Q272 124 320 130"/></g>' +
+  '<g fill="#3d3020"><path d="M148 132 Q144 104 160 100 Q176 104 172 132 Z"/><circle cx="160" cy="92" r="7"/>' +
+  '<path d="M160 86 Q150 90 152 100 L168 100 Q170 90 160 86 Z" fill="#2f2618"/></g>' +
+  '<rect x="174" y="104" width="4" height="14" fill="#2f2618" transform="rotate(18 176 111)"/>' +
+  fig(36, 124, 1.7, "#2f2618") + fig(66, 128, 1.5, "#3d3020") + fig(256, 124, 1.7, "#2f2618") + fig(288, 128, 1.5, "#3d3020"),
+
+  /* 7 탈출 (숲, 달, 뒤쫓는 횃불) */
+  '<defs><linearGradient id="sk7" x1="0" y1="0" x2="0" y2="1">' + SKY.night + '</linearGradient>' +
+  '<radialGradient id="gl7" cx=".5" cy=".5"><stop offset="0" stop-color="#cfe0f0" stop-opacity=".7"/><stop offset="1" stop-color="#cfe0f0" stop-opacity="0"/></radialGradient></defs>' +
+  '<rect width="320" height="140" fill="url(#sk7)"/>' +
+  '<circle cx="256" cy="34" r="30" fill="url(#gl7)"/>' +
+  '<path d="M262 18 A15 15 0 1 0 274 44 A12 12 0 1 1 262 18" fill="#f0e6cc"/>' +
+  '<g fill="#3f3320"><path d="M18 116 L30 40 L42 116 Z"/><path d="M12 84 L30 56 L48 84 Z"/><path d="M6 104 L30 70 L54 104 Z"/>' +
+  '<path d="M74 120 L84 52 L94 120 Z"/><path d="M68 92 L84 66 L100 92 Z"/><path d="M62 110 L84 78 L106 110 Z"/>' +
+  '<path d="M210 118 L220 58 L230 118 Z"/><path d="M204 94 L220 70 L236 94 Z"/><path d="M198 110 L220 82 L242 110 Z"/>' +
+  '<path d="M286 120 L296 48 L306 120 Z"/><path d="M280 90 L296 62 L312 90 Z"/><path d="M274 108 L296 76 L318 108 Z"/></g>' +
+  '<g fill="#e8a94a" opacity=".9"><circle cx="128" cy="60" r="5"/><circle cx="150" cy="52" r="4"/><circle cx="172" cy="62" r="4.5"/></g>' +
+  '<g fill="#8a6a33"><rect x="127" y="62" width="2" height="16"/><rect x="149" y="54" width="2" height="14"/><rect x="171" y="64" width="2" height="15"/></g>' +
+  '<rect x="0" y="116" width="320" height="24" fill="#2f2618"/>' +
+  '<g stroke="#4a3a24" stroke-width="1" fill="none"><path d="M0 126 Q60 120 120 126 Q180 132 240 126 Q280 122 320 126"/></g>' +
+  '<ellipse cx="160" cy="104" rx="26" ry="7" fill="#5d4c34"/>' +
+  '<circle cx="160" cy="96" r="14" fill="none" stroke="#cbb488" stroke-width="2.5"/>' +
+  '<circle cx="160" cy="96" r="7" fill="#cfe0f0" opacity=".55"/>' +
+  fig(120, 122, 1.8, "#1f1a10") + fig(140, 124, 1.6, "#1f1a10"),
+];
+
+/* ============================================================
+   장면별 필사본 명화 (위키미디어 공용, 퍼블릭 도메인)
+   ※ 이미지 로딩 실패 시 아래 SCENE_ART(내장 SVG)가 대신 표시됨
+   ============================================================ */
+const SCENE_PAINTING = [
+  { file: "Medieval market.jpg",
+    cap: "중세 시장 풍경 — 퍼블릭 도메인, Wikimedia Commons" },
+  null,
+  { file: "Scene of a bathhouse, c. 1470, painted by the Master of Anthony of Burgundy (Berlin Staatsbibliothek, Ms. Dep. Breslau 2, vol. 2, fol. 244).jpg",
+    cap: "목욕탕 풍경 · 발레리우스 막시무스 필사본, 1470년경 — 베를린 국립도서관" },
+  null,
+  null,
+  { file: "Niccolò da Bologna - Birth of John the Baptist, National Gallery of Art, Washington DC, miniature on vellum, late 14th cent.jpg",
+    cap: "세례자 요한의 탄생 · 니콜로 다 볼로냐, 14세기 말 — 워싱턴 국립미술관" },
+  { file: "Leper in costume with clapper Wellcome M0001065.jpg",
+    cap: "딱따기를 든 나환자 — 웰컴 컬렉션" },
+  null
+];
+
+function artFail(img) {
+  const w = img.closest(".band-wrap");
+  img.style.display = "none";
+  const cap = w.querySelector(".art-cap");
+  if (cap) cap.style.display = "none";
+  const svg = w.querySelector(".band-svg");
+  if (svg) svg.style.display = "block";
+}
+
+/* ============================================================
+   무작위 거리 카드 풀 — 판마다 다른 조합으로 등장
+   scenes: 등장 가능한 장면 번호(0-based). 없으면 어디서나
+   ============================================================ */
+const POOL = [
+  { id: "r_toll", icon: "purse", scenes: [0,1,2,6], speaker: "골목 어귀의 사내",
+    text: "덩치 큰 사내가 길을 막고 손바닥을 내민다.\n\n\u201c이 길은 우리 구역이오. 통행세 1페니.\u201d",
+    left:  { label: "동전을 준다", coins: -1, suspicion: -1,
+             need: "coins", result: "사내가 길을 비켜준다. \u201c현명하시군.\u201d",
+             fail: { suspicion: 2, result: "빈 주머니를 뒤집어 보인다. 사내가 침을 뱉는다. \u201c거지가 어딜 이 길로.\u201d" } },
+    right: { label: "밀치고 지나간다", suspicion: 2,
+             result: "어깨싸움이 벌어진다. 사람들이 둘러선다. 눈에 띄고 말았다." } },
+
+  { id: "r_crier", icon: "bell", scenes: [0,1,2],
+    text: "종을 든 관리가 목청을 높인다.\n\n\u201c들으라! 오늘 정오, 시장 광장에서 저울을 속인 빵장수를 벌한다!\u201d 사람들이 그쪽으로 몰려간다.",
+    left:  { label: "군중을 따라간다", suspicion: -1,
+             result: "무리에 섞이니 오히려 눈에 덜 띈다. 빵장수는 목에 상한 빵을 걸고 끌려다녔다." },
+    right: { label: "반대로 걷는다", suspicion: 1,
+             result: "모두가 한쪽으로 가는데 혼자 거스르는 자는, 어디서나 눈에 띈다." } },
+
+  { id: "r_pig", icon: "cart", scenes: [0,1,6],
+    text: "돼지 한 마리가 골목을 가로질러 달려온다. 뒤에서 주인이 소리치며 쫓아온다.\n\n\u201c잡아주쇼! 잡아!\u201d",
+    left:  { label: "다리를 걸어 붙잡는다", suspicion: -1, trust: 1,
+             result: "진창에 뒹굴었지만 돼지를 붙들었다. 주인이 연신 고맙다며 당신의 등을 두드린다." },
+    right: { label: "비켜선다", suspicion: 0,
+             result: "돼지가 흙탕물을 튀기며 지나간다. 주인의 원망스러운 눈길이 따라붙는다." } },
+
+  { id: "r_advice", icon: "hood", scenes: [0,1,2,6], speaker: "친절한 낯선 이", once: true,
+    text: "어떤 사내가 다가와 은근히 일러준다.\n\n\u201c외지 양반, 여기선 관리가 부르면 무조건 도망쳐야 하오. 붙잡히면 끝이거든.\u201d",
+    left:  { label: "\u201c고맙소, 명심하지\u201d", suspicion: 0, flag: "badAdvice",
+             result: "사내가 씩 웃으며 사라진다. \u2014 그 웃음의 의미는 나중에야 알게 된다." },
+    right: { label: "\u201c…정말 그렇소?\u201d", suspicion: 0, trust: 0,
+             result: "사내가 어깨를 으쓱하곤 가버린다. 낯선 자의 호의는 대개 값이 붙는다." } },
+
+  { id: "r_monk", icon: "staff", scenes: [0,1,5,6], speaker: "탁발 수사",
+    text: "누더기 차림의 수사가 그릇을 내민다.\n\n\u201c한 푼 적선하시오. 주님께서 갚아주실 거요.\u201d",
+    left:  { label: "동전을 넣는다", coins: -1, suspicion: -1, need: "coins",
+             result: "수사가 축복의 손짓을 한다. 주변 사람들이 그 광경을 보았다.",
+             fail: { suspicion: 0, result: "빈손을 펴 보인다. 수사가 고개를 끄덕이곤 지나간다. \u201c마음만으로도.\u201d" } },
+    right: { label: "못 본 척한다", suspicion: 1,
+             result: "수사가 당신의 등에 대고 뭐라 중얼거린다. 몇몇이 그 소리를 들었다." } },
+
+  { id: "r_drunk", icon: "goblet", scenes: [1,2,4],
+    text: "술에 절은 사내가 당신의 어깨를 붙들고 매달린다.\n\n\u201c형씨! 내가 말이야, 내가 왕년에는 말이지…\u201d",
+    left:  { label: "맞장구쳐 준다", suspicion: -1,
+             result: "한참을 떠들던 사내가 만족스레 떠난다. 주변 사람들이 당신을 이 동네 사람으로 여긴다." },
+    right: { label: "뿌리친다", suspicion: 1,
+             result: "사내가 바닥에 넘어지며 고래고래 욕을 한다. 시선이 모인다." } },
+
+  { id: "r_mud", icon: "cart", scenes: [0,1,6],
+    text: "위층 창문이 삐걱 열린다. 요강을 든 손이 보인다.\n\n\u201c물 내려가요!\u201d",
+    left:  { label: "재빨리 벽에 붙는다", suspicion: -1,
+             result: "오물이 길 한복판에 쏟아진다. 아슬아슬하게 피했다. \u2014 이 동네 사람다운 반사신경이었다." },
+    right: { label: "\u201c뭐요?\u201d 올려다본다", suspicion: 2,
+             result: "얼굴을 정통으로 맞았다. 골목이 웃음바다가 된다. 이제 모두가 당신을 기억한다." } },
+
+  { id: "r_dice", icon: "purse", scenes: [1,2], once: true, speaker: "도박꾼",
+    text: "골목 구석, 사내 셋이 주사위를 굴리고 있다.\n\n\u201c한판 어떠쇼? 딱 봐도 운 좋아 보이는 얼굴인데.\u201d",
+    left:  { label: "낀다", coins: 2, suspicion: 2, flag: "gambled",
+             result: "운 좋게 두 판을 땄다. 사내들의 표정이 굳는다. \u2014 이 판은 원래 따라고 벌인 판이 아니었다." },
+    right: { label: "고개를 젓는다", suspicion: -1,
+             result: "\u201c쳇, 겁쟁이.\u201d 사내들이 다시 주사위를 굴린다." } },
+
+  { id: "r_guest", icon: "goblet", scenes: [4], speaker: "취한 하객",
+    text: "붉은 얼굴의 하객이 당신의 소매를 붙든다.\n\n\u201c어이, 자네. 술이 비었잖나. 뭘 멀뚱히 서 있어?\u201d",
+    left:  { label: "고개를 조아리고 채운다", suspicion: -1,
+             result: "하객이 흡족해하며 손을 젓는다. 하인다운 처신이었다." },
+    right: { label: "\u201c제 일이 아닙니다\u201d", suspicion: 2,
+             result: "하객의 눈이 커진다. \u201c…이 댁 하인이 이렇게 무례한가?\u201d 근처 시선이 몰린다." } },
+
+  { id: "r_dog", icon: "pair", scenes: [0,1,5,6],
+    text: "비쩍 마른 개 한 마리가 당신을 따라오며 낑낑거린다.\n\n지나던 아이들이 그 광경을 구경한다.",
+    left:  { label: "빵을 떼어 준다", coins: -1, trust: 1, need: "coins",
+             result: "개가 꼬리를 흔든다. 아이들이 웃는다. 그녀가 그 모습을 조용히 지켜본다.",
+             fail: { result: "줄 것이 없다. 개가 잠시 서 있다 다른 데로 간다." } },
+    right: { label: "쫓아낸다", suspicion: 0, trust: -1,
+             result: "개가 깨갱거리며 달아난다. 아이들의 웃음이 멎는다." } },
+
+  { id: "r_watch", icon: "torch", scenes: [5,6,7], speaker: "야경꾼",
+    text: "창을 든 야경꾼이 등을 들이민다.\n\n\u201c통금 시간이다. 이 시각에 나다니는 자는 누구냐?\u201d",
+    left:  { label: "\u201c산모를 도우러 가는 길이오\u201d", suspicion: -1,
+             result: "야경꾼이 성호를 긋고 길을 터준다. 이 시대에 산모는 만능 통행증이다." },
+    right: { label: "말없이 물러선다", suspicion: 1,
+             result: "야경꾼이 등을 들어 당신의 얼굴을 오래 비춘다. \u201c…얼굴은 기억해 두마.\u201d" } },
+
+  { id: "r_relic", icon: "sign", scenes: [0,1,6], once: true, speaker: "행상",
+    text: "행상이 헝겊에 싼 뼛조각을 펼쳐 보인다.\n\n\u201c성 토마스의 손가락뼈요. 지니면 역병도 피해 간다오. 단돈 2페니.\u201d",
+    left:  { label: "산다", coins: -2, suspicion: -1, need: "coins",
+             result: "주변 사람들이 신심 깊은 자를 보는 눈으로 고개를 끄덕인다. \u2014 물론 가짜다.",
+             fail: { suspicion: 1, result: "값을 못 치르자 행상이 큰 소리로 비웃는다. \u201c순례자가 동전도 없어?\u201d" } },
+    right: { label: "\u201c가짜요\u201d", suspicion: 2,
+             result: "행상이 발끈해 소리친다. \u201c성물을 모독한다! 이 자가 성물을 모독해!\u201d" } },
+
+  { id: "r_guild", icon: "sign", scenes: [0,1],
+    text: "북과 깃발을 앞세운 길드 행렬이 거리를 메운다.\n\n제복을 맞춰 입은 장인들이 지나가자, 구경꾼들이 하나둘 모자를 벗는다.",
+    left:  { label: "모자를 벗고 비켜선다", suspicion: -1,
+             result: "당신도 무리에 섞여 고개를 숙인다. 아무도 당신을 두 번 쳐다보지 않는다." },
+    right: { label: "가던 길을 계속 간다", suspicion: 1,
+             result: "행렬을 거스르는 낯선 자에게 장인 몇이 눈살을 찌푸린다." } },
+
+  { id: "r_pillory", icon: "wall", scenes: [0,2], once: true,
+    text: "광장 한복판, 형틀에 목과 손이 끼인 사내가 있다.\n\n‘가짜 저울을 쓴 죄’라는 팻말이 걸렸다. 지나던 아낙이 당신 손에 상한 채소를 쥐여준다.",
+    left:  { label: "군중을 따라 던진다", suspicion: -1,
+             result: "채소가 사내의 얼굴에 맞는다. 웃음에 섞이니 당신도 이 거리의 사람처럼 보인다." },
+    right: { label: "슬그머니 내려놓는다", suspicion: 1,
+             result: "“왜 안 던지나?” 곁의 사내가 힐끗 본다. 벌을 함께 즐기지 않는 자는 눈에 띈다." } },
+
+  { id: "r_funeral", icon: "candle", scenes: [0,5,6],
+    text: "관을 앞세운 행렬이 다가온다.\n\n종소리에 맞춰 사람들이 걸음을 멈추고 성호를 긋는다.",
+    left:  { label: "함께 멈춰 성호를 긋는다", suspicion: -1,
+             result: "당신도 고개를 숙인다. 죽음 앞의 예의는 어디서나 통하는 언어다." },
+    right: { label: "그 틈에 서둘러 지나친다", suspicion: 2,
+             result: "관을 등지고 바삐 걷는 낯선 자를, 상주들이 오래 노려본다." } },
+
+  { id: "r_herb", icon: "bowl", scenes: [1,6], speaker: "약초 노파",
+    text: "허리 굽은 노파가 마른 약초 다발을 흔든다.\n\n“열병을 막아주는 부적이라오. 한 푼이면 되네.”",
+    left:  { label: "동전을 주고 받는다", coins: -1, suspicion: -1, need: "coins",
+             result: "노파가 약초를 쥐여준다. 곁의 사람들이 신심 깊은 자를 보듯 고개를 끄덕인다.",
+             fail: { suspicion: 0, result: "빈손을 보이자 노파가 혀를 차며 돌아선다. “가난한 순례자로군.”" } },
+    right: { label: "“그런 건 안 믿소”", suspicion: 1,
+             result: "노파의 눈이 가늘어진다. “…믿지 않는다고? 별난 양반일세.” 몇몇이 돌아본다." } },
+
+  { id: "r_firewood", icon: "grip", scenes: [0,1,5,6],
+    text: "장작 짐을 진 노인의 끈이 끊어져, 장작이 골목에 쏟아진다.\n\n지나는 이들은 힐끗 볼 뿐 그냥 간다.",
+    left:  { label: "허리를 굽혀 함께 줍는다", suspicion: -1, trust: 1,
+             result: "노인이 연신 고마워한다. 곁에서 지켜보던 이들의 경계도 조금 풀린다." },
+    right: { label: "못 본 척 지나친다", suspicion: 0,
+             result: "누구도 돕지 않는 게 흉은 아니다. 다만 노인의 한숨이 등 뒤에 얹힌다." } },
+
+  { id: "r_minstrel", icon: "goblet", scenes: [2,4],
+    text: "떠돌이 악사가 피리를 불며 사람들을 모은다.\n\n곡이 끝나자 구경꾼들이 동전을 던진다. 악사가 당신에게 눈짓한다.",
+    left:  { label: "동전을 던져 준다", coins: -1, suspicion: -1, need: "coins",
+             result: "악사가 익살스레 절을 한다. 당신도 흥을 아는 사람으로 보인다.",
+             fail: { suspicion: 1, result: "빈손을 보이자 악사가 과장되게 실망한 시늉을 한다. 구경꾼들이 웃으며 당신을 본다." } },
+    right: { label: "박수만 치고 지나간다", suspicion: 0,
+             result: "몇 걸음 못 가 악사의 시선이 따라붙지만, 곧 다른 구경꾼에게로 옮겨간다." } }
+];
+
+function drawRandom(n) {
+  const pick = [];
+  const eligible = POOL.filter(c =>
+    !S.usedRandom.has(c.id) &&
+    (!c.scenes || c.scenes.indexOf(S.scene) >= 0));
+  for (let i = 0; i < n && eligible.length; i++) {
+    const k = Math.floor(Math.random() * eligible.length);
+    const c = eligible.splice(k, 1)[0];
+    if (c.once) S.usedRandom.add(c.id);
+    pick.push(c);
+  }
+  return pick;
+}
+
+function bandHTML(sceneIdx, iconKey, inPanel) {
+  const art = SCENE_ART[sceneIdx];
+  if (!art) return "";
+  const med = (iconKey && ICONS[iconKey])
+    ? '<div class="medallion">' + icon(ICONS[iconKey], "") + '</div>' : "";
+  const p = SCENE_PAINTING[sceneIdx];
+  const svgTag = '<svg class="band band-svg" viewBox="0 0 320 140" ' +
+    (p ? 'style="display:none" ' : '') +
+    'preserveAspectRatio="xMidYMid slice">' + art + '</svg>';
+  const imgTag = p
+    ? '<img class="band" alt="" loading="lazy" onerror="artFail(this)" src="' +
+      "https://commons.wikimedia.org/wiki/Special:FilePath/" +
+      encodeURIComponent(p.file) + '?width=760">' +
+      '<div class="art-cap">' + p.cap + '</div>'
+    : "";
+  return '<div class="band-wrap' + (inPanel ? ' in-panel' : '') + '">' +
+    imgTag + svgTag + med + '</div>';
+}
+
+/* ── 의심도 게이지 ── */
+const EYE_OPEN = '<svg width="30" height="18" viewBox="0 0 30 18"><path d="M2 9 Q15 -3 28 9 Q15 21 2 9 Z" fill="none" stroke="#c9403a" stroke-width="1.6"/><circle cx="15" cy="9" r="3.6" fill="#c9403a"/><circle cx="16.3" cy="7.8" r="1" fill="#1a1512"/></svg>';
+const EYE_SHUT = '<svg width="30" height="18" viewBox="0 0 30 18"><path d="M4 10 Q15 15 26 10" fill="none" stroke="#57493c" stroke-width="1.6" stroke-linecap="round"/></svg>';
+
+const COIN_SVG = '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5.5 8 H10.5 M8 5.5 V10.5" stroke="currentColor" stroke-width="1.4"/></svg>';
+
+function drawGauge() {
+  let h = "";
+  for (let i = 0; i < SCENARIO.suspicionMax; i++) h += (i < S.suspicion ? EYE_OPEN : EYE_SHUT);
+  h += '<span id="purse" class="' + (S.coins <= 0 ? "empty" : "") + '">' +
+       COIN_SVG + S.coins + '</span>';
+  el.gauge.innerHTML = h;
+}
+
+function flash(delta) {
+  if (!delta) return;
+  el.feedback.textContent = delta > 0 ? "시선이 모인다…" : "시선이 흩어진다";
+  el.feedback.className = "show " + (delta > 0 ? "up" : "down");
+  setTimeout(() => { el.feedback.className = ""; }, 900);
+}
+
+function show(which) {
+  el.cardZone.classList.toggle("hidden", which !== "card");
+  el.progress.classList.toggle("hidden", which !== "card");
+  el.panel.classList.toggle("hidden", which !== "panel");
+}
+
+function takeResult() {
+  const r = S.lastResult;
+  S.lastResult = null;
+  return r;
+}
+
+/* ============================================================
+   화면
+   ============================================================ */
+const TITLE_EYE = '<svg viewBox="0 0 60 36" width="88" height="53"><path d="M4 18 Q30 -6 56 18 Q30 42 4 18 Z" fill="none" stroke="#b07f2e" stroke-width="2"/><circle cx="30" cy="18" r="7.5" fill="#b07f2e"/><circle cx="32.5" cy="15.5" r="2" fill="#efe4cd"/></svg>';
+
+function screenIntro() {
+  el.topLabel.textContent = "TIME WALKER";
+  el.fx.classList.remove("on");
+  S.scene = 0; S.cardId = null; S.step = 0;
+  S.suspicion = 0; S.trust = 0; S.coins = 3;
+  S.locked = false; S.lastResult = null; S.records = []; S.flags = new Set();
+  S.queue = []; S.current = null; S.showingRandom = false; S.usedRandom = new Set();
+  drawGauge();
+  el.panel.innerHTML =
+    '<div class="title-eye">' + TITLE_EYE + '</div>' +
+    '<h1>타임 워커</h1>' +
+    '<div class="title-sub">14세기 런던</div>' +
+    '<div class="rule"></div>' +
+    '<p class="tagline">당신은 이 시대의 규칙을 모른다.\n그것이 당신의 유일한 약점이다.</p>' +
+    '<button class="btn" id="go">시간을 거슬러</button>' +
+    '<p class="note">※ 프로토타입 — 1화 전체(7장면) 플레이 가능</p>';
+  refade(el.panel);
+  show("panel");
+  $("go").onclick = screenPrologue;
+}
+
+function screenPrologue() {
+  el.topLabel.textContent = "14세기 런던";
+  el.panel.innerHTML =
+    icon(ICONS.machine, "vignette-lg") +
+    '<h2>프롤로그</h2><div class="rule"></div>' +
+    '<p class="body-text">' + SCENARIO.intro + '</p>' +
+    '<button class="btn" id="go">마을로 들어간다</button>';
+  refade(el.panel);
+  show("panel");
+  $("go").onclick = () => screenNarration();
+}
+
+function artHTML(sc) {
+  if (!sc.art) return "";
+  const src = "https://commons.wikimedia.org/wiki/Special:FilePath/" +
+    encodeURIComponent(sc.art.file) + "?width=640";
+  return '<img class="scene-art" src="' + src + '" alt="" loading="lazy" ' +
+    'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'none\'">' +
+    '<div class="art-cap">' + sc.art.caption + '</div>';
+}
+
+function screenNarration() {
+  const sc = SCENARIO.scenes[S.scene];
+  el.topLabel.textContent = sc.label + " · " + sc.title;
+  const res = takeResult();
+  el.panel.innerHTML =
+    bandHTML(S.scene, SCENE_ICONS[S.scene], true) +
+    (res ? '<div class="result-line">' + res + '</div>' : '') +
+    '<h2>' + sc.title + '</h2><div class="rule"></div>' +
+    '<p class="body-text">' + sc.intro + '</p>' +
+    '<button class="btn" id="go">계속</button>';
+  refade(el.panel);
+  show("panel");
+  $("go").onclick = () => {
+    S.cardId = sc.cards[0].id;
+    S.step = 0;
+    S.queue = drawRandom(Math.random() < 0.45 ? 2 : 1);
+    screenCard();
+  };
+}
+
+function screenCard() {
+  const sc = SCENARIO.scenes[S.scene];
+  let c, ik;
+  if (S.queue.length) {
+    c = S.queue[0];
+    S.showingRandom = true;
+    ik = c.icon;
+  } else {
+    c = findCard(sc, S.cardId);
+    S.showingRandom = false;
+    ik = (CARD_ICONS[S.scene] || {})[c.id];
+  }
+  S.current = c;
+  el.topLabel.textContent = sc.label + " · " + sc.title;
+  S.step++;
+
+  let p = "";
+  for (let i = 0; i < S.step; i++) p += '<span class="dot"></span>';
+  el.progress.innerHTML = p;
+
+  const res = takeResult();
+  el.resultLine.textContent = res || "";
+  el.resultLine.classList.toggle("hidden", !res);
+
+  el.cardArt.innerHTML = bandHTML(S.scene, ik, false);
+
+  el.speaker.textContent = c.speaker || "";
+  el.cardText.textContent = c.text;
+  el.btnLeft.textContent = "◂ " + c.left.label;
+  el.btnRight.textContent = c.right.label + " ▸";
+  el.btnLeft.classList.remove("armed");
+  el.btnRight.classList.remove("armed");
+
+  el.card.style.transition = "none";
+  el.card.style.transform = "translateX(0) rotate(0deg)";
+  refade(el.cardInner);
+  S.locked = false;
+  show("card");
+}
+
+function recordsHTML() {
+  if (S.records.length === 0)
+    return '<div class="records"><div class="records-title">여행의 기록</div>' +
+           '<div class="rec-empty">무사히 지나온 장면이 없어, 남은 기록도 없다.</div></div>';
+  let h = '<div class="records"><div class="records-title">여행의 기록</div>';
+  for (const r of S.records) {
+    h += '<details><summary>' + r.title + '</summary><div class="rec-body">' +
+         '<p>' + r.confirmed + '</p>' +
+         '<div class="disputed"><div class="disputed-label">해석 · 논쟁</div>' +
+         '<p style="margin:0">' + r.disputed + '</p></div></div></details>';
+  }
+  return h + '</div>';
+}
+
+function resolveEnding(kind) {
+  if (kind === "alone") return "forsaken";                               // 혼자 오른다 → 스스로 두고 감
+  if (S.trust < SCENARIO.trustThreshold) return "alone";                 // 함께 시도했으나 신뢰 부족 → 그녀 붙잡힘
+  if (S.flags.has("sawFace") && S.suspicion <= 2) return "vindicated";   // 진실 엔딩
+  if (S.suspicion >= 4) return "togetherNarrow";                         // 아슬아슬한 함께
+  return "together";                                                     // 깔끔한 함께
+}
+
+function screenEnding(key) {
+  try { (key === "caught") ? SFX.endCaught() : SFX.endWin(); } catch (e) {}
+  const e = (key === "caught")
+    ? (SCENARIO.caughtEndings[S.scene] || SCENARIO.endings.caught)
+    : SCENARIO.endings[key];
+  el.topLabel.textContent = "TIME WALKER";
+  const res = takeResult();
+  el.panel.innerHTML =
+    (res ? '<div class="result-line">' + res + '</div>' : '') +
+    '<h1>' + e.title + '</h1><div class="rule"></div>' +
+    '<p class="body-text">' + e.text + '</p>' +
+    '<div class="stat">최종 의심도 ' + S.suspicion + ' / ' + SCENARIO.suspicionMax +
+    ' · 신뢰 ' + S.trust + (key === "caught" ? "" : " (" + SCENARIO.trustThreshold + " 이상이면 함께 탈출)") + '</div>' +
+    recordsHTML() +
+    '<button class="btn" id="go">다시 시간을 거슬러</button>';
+  refade(el.panel);
+  show("panel");
+  $("go").onclick = screenIntro;
+}
+
+/* 붙잡힘: 화면이 어두워진 뒤 엔딩으로 */
+function gameOverCaught() {
+  el.fx.classList.add("on");
+  setTimeout(() => {
+    el.fx.classList.remove("on");
+    screenEnding("caught");
+  }, 1100);
+}
+
+/* ============================================================
+   선택 처리
+   ============================================================ */
+function choose(dir) {
+  if (S.locked) return;
+  S.locked = true;
+  try { SFX.swipe(dir); } catch (e) {}
+
+  const sc = SCENARIO.scenes[S.scene];
+  const card = S.current;
+  let ch = card[dir];
+
+  /* 동전이 필요한 선택인데 없으면 실패 분기로 */
+  let failed = false;
+  if (ch.need === "coins" && S.coins + (ch.coins || 0) < 0) {
+    failed = true;
+    ch = Object.assign({}, ch, ch.fail || {}, { coins: 0, next: ch.next, ending: ch.ending });
+  }
+
+  el.card.style.transition = "transform .26s ease";
+  el.card.style.transform = "translateX(" + (dir === "left" ? -460 : 460) + "px) rotate(" + (dir === "left" ? -22 : 22) + "deg)";
+
+  setTimeout(() => {
+    let d = ch.suspicion || 0;
+    let t = ch.trust || 0;
+    let extra = "";
+
+    /* 지연 함정: 앞선 선택이 지금 발목을 잡는다 */
+    if (ch.mod) for (const m of ch.mod) {
+      if (S.flags.has(m.flag)) {
+        d += (m.suspicion || 0);
+        t += (m.trust || 0);
+        if (m.add) extra += "\n" + m.add;
+      }
+    }
+
+    S.suspicion = Math.max(0, S.suspicion + d);
+    S.trust += t;
+    S.coins = Math.max(0, S.coins + (ch.coins || 0));
+    S.lastResult = (ch.result || "") + extra || null;
+    if (ch.flag) S.flags.add(ch.flag);
+    try { if (d > 0) SFX.suspicion(); else if (t > 0) SFX.trust(); if ((ch.coins || 0) < 0) SFX.coin(); } catch (e) {}
+    drawGauge();
+    flash(d);
+
+    if (S.suspicion >= SCENARIO.suspicionMax) { gameOverCaught(); return; }
+
+    /* 무작위 카드였다면 큐에서 빼고 이어서 진행 */
+    if (S.showingRandom) {
+      S.queue.shift();
+      screenCard();
+      return;
+    }
+
+    if (ch.ending) {
+      S.records.push(sc.record);
+      screenEnding(resolveEnding(ch.ending));
+      return;
+    }
+
+    let next = ch.next || nextSequential(sc, S.cardId);
+    if (typeof next === "object") next = S.flags.has(next.flag) ? next.then : next.else;
+    if (next !== "END") {
+      S.cardId = next;
+      if (Math.random() < 0.28) S.queue = S.queue.concat(drawRandom(1));
+      screenCard();
+    } else {
+      S.records.push(sc.record);
+      if (S.scene + 1 < SCENARIO.scenes.length) {
+        S.scene++;
+        try { SFX.transition(); } catch (e) {}
+        screenNarration();
+      } else {
+        screenEnding(S.trust >= SCENARIO.trustThreshold ? "together" : "alone");
+      }
+    }
+  }, 260);
+}
+
+el.btnLeft.onclick = () => choose("left");
+el.btnRight.onclick = () => choose("right");
+
+/* ── 드래그 ── */
+const TH = 70;
+let dragging = false, startX = 0, dx = 0;
+
+function dragStart(x) {
+  if (S.locked) return;
+  dragging = true; startX = x; dx = 0;
+  el.card.style.transition = "none";
+}
+function dragMove(x) {
+  if (!dragging || S.locked) return;
+  dx = x - startX;
+  el.card.style.transform = "translateX(" + dx + "px) rotate(" + (dx / 18) + "deg)";
+  el.btnLeft.classList.toggle("armed", dx <= -TH);
+  el.btnRight.classList.toggle("armed", dx >= TH);
+}
+function dragEnd() {
+  if (!dragging || S.locked) return;
+  dragging = false;
+  if (dx <= -TH) choose("left");
+  else if (dx >= TH) choose("right");
+  else {
+    el.card.style.transition = "transform .26s ease";
+    el.card.style.transform = "translateX(0) rotate(0deg)";
+    el.btnLeft.classList.remove("armed");
+    el.btnRight.classList.remove("armed");
+  }
+}
+
+if (window.PointerEvent) {
+  el.card.addEventListener("pointerdown", e => {
+    el.card.setPointerCapture(e.pointerId);
+    dragStart(e.clientX);
+  });
+  window.addEventListener("pointermove", e => dragMove(e.clientX));
+  window.addEventListener("pointerup", dragEnd);
+  window.addEventListener("pointercancel", dragEnd);
+} else {
+  el.card.addEventListener("touchstart", e => dragStart(e.touches[0].clientX), { passive: true });
+  el.card.addEventListener("touchmove", e => dragMove(e.touches[0].clientX), { passive: true });
+  el.card.addEventListener("touchend", dragEnd);
+  el.card.addEventListener("mousedown", e => dragStart(e.clientX));
+  window.addEventListener("mousemove", e => dragMove(e.clientX));
+  window.addEventListener("mouseup", dragEnd);
+}
+
+screenIntro();
+</script>
+</body>
+</html>
