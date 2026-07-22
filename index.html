@@ -701,7 +701,7 @@ const el = {
    - 음소거: 메모리 변수, 기본 켜짐
    ============================================================ */
 const SFX = (function () {
-  var ctx = null, ok = true, muted = false, unlocked = false;
+  var ctx = null, ok = true, muted = false, unlocked = false, MASTER = 1.7;
   function getCtx() {
     if (ctx) return ctx;
     try {
@@ -715,7 +715,7 @@ const SFX = (function () {
     if (muted || !ok) return;
     var c = getCtx(); if (!c) return;
     try {
-      var t = c.currentTime, dur = o.dur || 0.2, vol = (o.vol != null ? o.vol : 0.1);
+      var t = c.currentTime, dur = o.dur || 0.2, vol = (o.vol != null ? o.vol : 0.1) * MASTER;
       var osc = c.createOscillator(), g = c.createGain();
       osc.type = o.type || "sine";
       osc.frequency.setValueAtTime(o.f0, t);
@@ -735,9 +735,12 @@ const SFX = (function () {
   return {
     unlock: function () {
       if (unlocked) return;
-      var c = getCtx();
-      if (c && c.state === "suspended") { try { c.resume(); } catch (e) {} }
       unlocked = true;
+      try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) {}
+      var c = getCtx();
+      if (!c) return;
+      try { if (c.state === "suspended") c.resume(); } catch (e) {}
+      try { var b = c.createBuffer(1, 1, 22050), s = c.createBufferSource(); s.buffer = b; s.connect(c.destination); s.start(0); } catch (e) {}
     },
     toggleMute: function () { muted = !muted; return muted; },
     isMuted: function () { return muted; },
