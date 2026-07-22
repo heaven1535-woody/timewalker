@@ -179,6 +179,20 @@
     .fade-in { animation: none !important; }
     .title-eye { animation: none !important; }
   }
+
+  /* 짧은 화면(작은 폰/가로/툴바 노출) — 명화+카드+버튼 한 화면에 */
+  @media (max-height: 680px) {
+    main { padding: 2px 16px 12px; }
+    #progress { margin-bottom: 6px; }
+    #cardZone { gap: 10px; }
+    #card { padding: 20px 24px; }
+    .band-wrap { margin: -20px -24px 8px; }
+    #speaker { margin-bottom: 8px; }
+    #cardText { font-size: 15.5px; line-height: 1.7; }
+    #hint { margin-top: 8px; }
+    img.band { max-height: 24dvh; }
+  }
+
 </style>
 </head>
 <body>
