@@ -218,6 +218,7 @@
     /* 짧은 화면: 인트로/프롤로그/규칙·장면 인트로 패널이 넘쳐 버튼이 가려지지 않게
        여백·폰트 축소 + 버튼을 패널 하단에 고정(스크롤 없이 항상 보이게) */
     .panel { padding: 16px 20px; justify-content: flex-start; }
+    .band-wrap.in-panel { margin-left: -20px; margin-right: -20px; }  /* 줄어든 패딩과 정확히 맞춤 */
     .panel h1 { font-size: clamp(21px, 6vw, 26px); }
     .panel h2 { font-size: clamp(17px, 5vw, 20px); }
     .panel .rule { margin: 9px auto 12px; }
@@ -235,6 +236,7 @@
     .band-wrap { margin: -18px -20px 7px; }
     img.band { max-height: min(240px, 30dvh); }
     .panel { padding: 12px 18px; }
+    .band-wrap.in-panel { margin-left: -18px; margin-right: -18px; }  /* 줄어든 패딩과 정확히 맞춤 */
     .body-text { line-height: 1.5; margin-bottom: 10px; }
     .tagline { line-height: 1.5; margin-bottom: 12px; }
     .rules-list { gap: 6px; margin: 3px 0 10px; }
