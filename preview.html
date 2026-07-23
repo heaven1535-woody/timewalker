@@ -45,6 +45,12 @@
     font-family: 'Noto Serif KR', serif; }
   #trust svg { width: 21px; height: 13px; }
   #trust.neg { color: #a86b52; }
+  /* ── 건강 하트 + 날짜 (둘째 HUD 행) ── */
+  #hud2 { display: flex; gap: 10px; align-items: center; height: 17px; margin-top: 2px; }
+  #hearts { display: inline-flex; gap: 3px; align-items: center; }
+  #hearts svg { display: block; }
+  #dayTag { font-family: 'Noto Serif KR', serif; font-size: 12px; letter-spacing: .04em;
+    color: #b0894a; }
   #feedback { height: 20px; font-size: 13px; font-family: 'Noto Serif KR', serif;
     opacity: 0; transition: opacity .2s; text-align: center; }
   #feedback.show { opacity: 1; }
@@ -281,6 +287,8 @@
     text-shadow: 0 1px 3px rgba(0,0,0,.92), 0 0 8px rgba(0,0,0,.6); }
   body.mode-card #trust.neg { color: #d8a789; }
   body.mode-card #purse { text-shadow: 0 1px 3px rgba(0,0,0,.9); }
+  body.mode-card #dayTag { color: #ecd39a; text-shadow: 0 1px 3px rgba(0,0,0,.92), 0 0 8px rgba(0,0,0,.6); }
+  body.mode-card #hearts svg { filter: drop-shadow(0 1px 2px rgba(0,0,0,.85)); }
   body.mode-card #speaker { color: #f0c975;
     text-shadow: 0 1px 3px rgba(0,0,0,.95), 0 0 8px rgba(0,0,0,.7); }
   body.mode-card #cardText { color: #f7f0e2;
@@ -311,7 +319,9 @@
 <div id="app">
   <header>
     <div id="topLabel">14세기 런던 · 프로토타입</div>
-    <div id="gauge"></div>    <div id="feedback"></div>
+    <div id="gauge"></div>
+    <div id="hud2"></div>
+    <div id="feedback"></div>
   </header>
   <main>
     <div id="progress" class="hidden"></div>
@@ -791,9 +801,146 @@ const SCENARIO = {
 };
 
 /* ============================================================
+   ▣ 한 달 살기 확장 — 생존 카드 · 건강/굶주림/역병 · 엔딩 재편
+   (기존 SCENARIO 구조를 뜯지 않고 그 위에 얹는 데이터/오버라이드)
+   ============================================================ */
+const LAST = SCENARIO.scenes.length - 1;      // 마지막 장면(탈출·피날레)
+const DAY_SCENE = 2;                          // 장면 이동에 흐르는 날수
+const DAY_SURV  = 2;                          // 생존 카드 하루하루
+const HUNGER_LIMIT = 3;                        // 생존 날 이만큼 연속으로 굶으면 건강 감소
+
+/* 일상 생존 카드 — 장면 사이 '생존 날'로 삽입 (queue 메커니즘 재사용) */
+const SURVIVAL = {
+  s_food: { id: "s_food", survival: true, icon: "stall", speaker: "완두콩 죽 노점",
+    text: "며칠을 걷는 동안 뱃속이 텅 비었다. 김이 오르는 완두콩 죽 냄비 앞에서 걸음이 멎는다.\n\n“한 그릇에 1페니요.”",
+    left:  { label: "한 그릇 사 먹는다", coins: -1, health: 1, eat: true, need: "coins",
+             result: "뜨거운 죽이 뱃속을 데운다. 오랜만에 사람 사는 것 같은 온기가 돈다.",
+             fail: { health: 0, suspicion: 0, result: "주머니가 비었다. 냄비 앞을 서성이다 침만 삼키고 돌아선다. 허기가 뼛속까지 스민다." } },
+    right: { label: "아껴 두고 참는다", suspicion: 0,
+             result: "동전을 만지작거리다 도로 넣는다. 오늘도 굶는다. — 언제까지 버틸 수 있을까." } },
+
+  s_labor: { id: "s_labor", survival: true, icon: "grip", speaker: "부두 십장",
+    text: "강가 부두, 짐 나를 일손을 구한다는 소리가 들린다.\n\n“해질 때까지 등짐을 지면 삯을 쳐주지. 할 텐가?”",
+    left:  { label: "하루 품을 판다", coins: 3, eat: true,
+             result: "어깨가 빠질 듯하지만, 삯과 함께 일꾼 몫의 빵도 나온다. 정직한 벌이는 의심을 사지 않는다." },
+    right: { label: "기운을 아낀다", suspicion: 0,
+             result: "고된 일을 마다한다. 몸은 성하지만 주머니는 여전히 가볍다." } },
+
+  s_inn: { id: "s_inn", survival: true, icon: "door", speaker: "여관 주인",
+    text: "해가 지고 찬 바람이 분다. 여관 문틈으로 새어 나오는 불빛이 따뜻해 보인다.\n\n“짚자리 하나에 2페니. 잘 텐가, 말 텐가?”",
+    left:  { label: "삯을 치르고 눕는다", coins: -2, health: 1, eat: true, need: "coins",
+             result: "짚 냄새 나는 자리, 묽은 죽 한 그릇에 몸을 뉘니 뼈마디가 녹는다.",
+             fail: { health: -1, cold: true, suspicion: 0, result: "동전이 모자란다. 처마 밑에 웅크려 밤을 난다. 새벽 한기에 온몸이 덜덜 떨린다." } },
+    right: { label: "노숙한다 — 돈을 아낀다", health: -1, cold: true, suspicion: 0,
+             result: "골목 담벼락에 몸을 붙이고 잔다. 밤이 깊을수록 추위가 살을 파고든다." } },
+
+  s_beg: { id: "s_beg", survival: true, icon: "bowl", speaker: "",
+    text: "주머니가 바닥났다. 성당 앞 계단, 동냥 그릇을 든 이들 틈에 설까 망설인다.",
+    left:  { label: "손을 벌려 구걸한다", coins: 2, suspicion: 1,
+             result: "몇 닢이 그릇에 떨어진다. 하지만 낯선 얼굴의 걸인을, 사람들이 흘깃흘깃 살핀다." },
+    right: { label: "자존을 지키고 돌아선다", suspicion: -1,
+             result: "빈손이지만 고개는 숙이지 않았다. 조용히 자리를 뜨는 당신을 아무도 눈여겨보지 않는다." } },
+
+  s_plague: { id: "s_plague", survival: true, icon: "clap", speaker: "이웃 사내",
+    text: "골목 어귀 집 문에 붉은 십자가가 그려져 있다. 안에서 신음이 새어 나온다.\n\n“역병이오. ‘큰 죽음’이 북에서 내려왔다더니… 손대지 마쇼.”",
+    left:  { label: "물이라도 떠다 문 앞에 둔다", trust: 1, infect: true,
+             result: "차마 그냥 지나치지 못한다. 문 앞에 물동이를 두고 물러서지만 — 그 탁한 공기를 들이마신 게 마음에 걸린다." },
+    right: { label: "코를 막고 서둘러 지난다", suspicion: 0,
+             result: "숨을 참고 종종걸음으로 골목을 빠져나온다. 등 뒤의 신음이 오래 따라붙는다." } },
+
+  s_cold: { id: "s_cold", survival: true, icon: "torch", speaker: "장작 파는 아이",
+    text: "밤 기온이 뚝 떨어졌다. 성한 사람도 얼어 죽는다는 계절이다.\n\n“장작 한 단에 1페니요. 불 없이 나면 밤이 길 텐데.”",
+    left:  { label: "장작을 사 불을 쬔다", coins: -1, health: 1, need: "coins",
+             result: "작은 모닥불이 언 손을 녹인다. 불빛 곁으로 사람이 하나둘 모여든다.",
+             fail: { health: -1, cold: true, suspicion: 0, result: "불을 피울 돈이 없다. 이를 악물고 추위를 견딘다. 온몸이 얼어붙는 듯하다." } },
+    right: { label: "그냥 몸으로 버틴다", health: -2, cold: true, suspicion: 0,
+             result: "장작값을 아낀다. 대신 밤새 덜덜 떨며 뜬눈으로 새운다. 뼛속까지 얼어붙는 밤이다." } },
+
+  s_cure: { id: "s_cure", survival: true, icon: "bowl", speaker: "약재상 노파",
+    text: "몸이 무겁고 열이 오른다. 골목 안쪽, 마른 약초를 파는 노파가 손짓한다.\n\n“안색이 나쁘군. 열을 다스리는 달임 물이 있네. 2페니면 되네.”",
+    left:  { label: "약값을 치르고 몸을 추스른다", coins: -2, health: 1, cure: true, need: "coins",
+             result: "쓴 물을 들이켜자 열이 조금 가라앉는다. 노파가 이마를 짚어 준다. “살고 싶으면 잘 먹고 잘 자게.”",
+             fail: { health: 0, suspicion: 0, result: "약값이 모자란다. 노파가 혀를 찬다. “돈 없이는 낫는 것도 사치일세.” 몸은 여전히 무겁다." } },
+    right: { label: "약을 마다하고 견딘다", suspicion: 0,
+             result: "“쓸데없는 데 돈을 쓰겠소.” 노파가 어깨를 으쓱한다. 열은 밤새 오르내린다." } }
+};
+/* 장면 진입 시 삽입할 생존 카드 (0=시장은 게임 시작 당일이라 없음, 7=피날레 억제) */
+const SURVIVAL_BY_SCENE = { 1: ["s_food"], 2: ["s_labor"], 3: ["s_inn"],
+                            4: ["s_beg"], 5: ["s_plague"], 6: ["s_cold", "s_cure"] };
+
+/* 건강 감소 + 사인 기록 */
+function harm(n, cause) {
+  if (n <= 0 || S.health <= 0) return;   // 이미 쓰러졌으면 사인(死因)을 덮어쓰지 않는다
+  S.health = Math.max(0, S.health - n);
+  S.lastHarm = cause || "starve";
+}
+/* 달력만 흐른다 (장면 이동 등) — 시간 압박은 있으나 곧바로 몸을 깎지는 않는다 */
+function advanceDay(n) {
+  n = n || 0;
+  S.day = Math.min(S.dayMax, S.day + n);
+}
+/* '생존 날' 한 판을 실제로 살아 낸다 — 굶주림·역병이 몸을 깎는 지점 */
+function survivalTick() {
+  S.hunger++;
+  if (S.hunger > HUNGER_LIMIT) { harm(1, "starve"); S.hunger = HUNGER_LIMIT; }
+  if (S.infected) {
+    S.plagueDays = (S.plagueDays || 0) + 1;
+    if (S.plagueDays >= 2) { harm(1, "plague"); S.plagueDays = 0; }
+  }
+}
+
+/* ── 사망 엔딩(신규) ── */
+SCENARIO.deathEndings = {
+  starve: { title: "주린 배",
+    text: "며칠째 아무것도 넘기지 못한 몸이 끝내 무너진다.\n\n담벼락에 기댄 채 스러지는 당신을, 오가는 이들은 흘깃 볼 뿐 걸음을 멈추지 않는다. 굶어 죽는 자는 이 거리에서 드문 일이 아니다.\n\n돌아갈 길은, 끝내 열리지 않았다.\n\n— 사망 · 아사" },
+  plague: { title: "검은 죽음",
+    text: "열이 오르고 목과 겨드랑이에 검은 멍울이 부어오른다. ‘큰 죽음’이 당신마저 붙들었다.\n\n1349년, 이 병은 런던 사람의 태반을 삼켰다. 시간을 건너온 당신도, 그 앞에서는 그저 한 사람의 죽음일 뿐이었다.\n\n— 사망 · 역병" },
+  cold: { title: "언 밤",
+    text: "불도 지붕도 없이 맞은 밤이 너무 길었다.\n\n새벽 서리 속에서 당신은 끝내 눈을 뜨지 못한다. 얼어 죽은 떠돌이 하나를, 아침의 거리는 무심히 지나친다.\n\n— 사망 · 동사" },
+  violence: { title: "뒷골목의 법",
+    text: "골목의 법은 관리의 법보다 빠르고 잔인하다.\n\n주먹과 발길질이 멎었을 때, 당신은 차가운 진창에 홀로 남는다. 이 시대에 힘없는 이방인의 목숨은, 동전 몇 닢보다 가벼웠다.\n\n— 사망 · 폭력" }
+};
+
+/* ── 마녀사냥(실패) — 기존 체포 엔딩 8종을 마녀재판·화형 톤으로 리프레임 ── */
+SCENARIO.caughtEndings = [
+  { title: "이방의 마녀",
+    text: "관리들이 당신의 팔을 붙든다. “주인도 없고, 말도 다르고, 아는 것도 다른 자라. — 사람이 맞긴 한가?”\n\n역병이 도는 해, 낯선 자는 곧 재앙의 씨앗으로 몰린다. 당신은 마녀재판에 넘겨져, 변명할 새도 없이 장작더미 위에 세워진다.\n\n— 마녀사냥 · 시장 거리에서" },
+  { title: "홀린 눈",
+    text: "골목의 사내들이 당신을 담벼락 안쪽으로 끌고 간다. “저 눈, 저 말투 — 사람 홀리는 마녀가 틀림없어.”\n\n뒷골목의 법은 재판을 기다리지 않는다. 사람들은 당신에게서 ‘악한 기운’을 보았다고 입을 모으고, 그 확신 앞에서 진실은 무력하다.\n\n— 마녀사냥 · 그로프 레인에서" },
+  { title: "물의 심판",
+    text: "“마녀는 물이 받아들이지 않는 법이지.”\n\n손발이 묶인 채 강물에 던져진다. 떠오르면 마녀요, 가라앉으면 결백이라 했다. — 어느 쪽이든, 살아 돌아온 자는 없었다.\n\n— 마녀사냥 · 공중목욕탕 앞에서" },
+  { title: "신성 모독의 불",
+    text: "“성체 앞에 무릎도 꿇지 않은 자다! 악마와 계약한 게 분명하다!”\n\n검은 옷의 소환리가 당신을 교회 법정으로 끌고 간다. 신을 모른다는 것은, 이 시대에 곧 악마의 편이라는 뜻이었다. 판결은 이미 정해져 있다 — 화형.\n\n— 마녀사냥 · 성 바오로 대성당에서" },
+  { title: "영주의 마녀재판",
+    text: "“혼인 첫날밤에 요사한 술수를 부린 계집의 일당이라.”\n\n영주의 병사들이 당신을 성 아래 어둠으로 끌고 내려간다. 자백이 나올 때까지 심문은 멈추지 않고, 그 끝은 언제나 장작더미다.\n\n— 마녀사냥 · 귀족의 결혼식에서" },
+  { title: "악한 눈",
+    text: "“저 사내가 산실을 넘봤다! 산모에게 마녀의 눈을 씌우려던 게야!”\n\n수군거림은 삽시간에 확신이 된다. 당신은 마녀재판에 넘겨진다. 낯선 자를 향한 두려움은, 언제나 이유를 나중에 찾는다.\n\n— 마녀사냥 · 산파의 집에서" },
+  { title: "역병을 부른 자",
+    text: "“저자가 우물에 무언가를 풀었다! 역병을 몰고 온 마녀다!”\n\n있지도 않은 죄가 순식간에 부풀어 오른다. ‘큰 죽음’의 공포는 희생양을 원했고, 낯선 당신이 바로 그 제물이 된다.\n\n— 마녀사냥 · 병자의 골목에서" },
+  { title: "강령술사의 최후",
+    text: "군중이 숲을 뒤져 그것을 찾아냈다. 쇠와 유리로 된, 이 세상 물건이 아닌 기계.\n\n“악마의 기계다! 강령술사다!”\n\n이제 당신은 첩자가 아니라 마녀다. 그리고 이 시대는, 마녀를 어떻게 다루는지 너무나 잘 알고 있다. — 장작더미에 불이 붙는다.\n\n— 마녀사냥 · 탈출 직전에" }
+];
+
+/* ── 생존 성공 — 기존 탈출 엔딩을 '한 달 끝 귀환'의 분기로 흡수 ── */
+SCENARIO.endings.together.title = "함께 돌아가다";
+SCENARIO.endings.together.text = "숲에 다다르자 그녀가 먼저 타임머신에 뛰어오른다. — 런던에서의 한 달이, 이 한순간을 위한 것이었다.\n\n눈부신 빛이 두 사람을 삼킨다. 돌아갈 길이, 마침내 열렸다.\n\n— 생존 · 함께 돌아가다";
+SCENARIO.endings.alone.title = "홀로 돌아가다";
+SCENARIO.endings.alone.text = "꼬박 한 달을 버텨 낸 끝에, 돌아갈 길이 열렸다.\n\n돌아보니 그녀는 군중에게 붙잡혀 멀어져 간다. 빛이 당신 혼자만을 삼킨다. 살아남았으나, 마음 한켠은 저 시대에 남는다.\n\n— 생존 · 홀로 돌아가다";
+SCENARIO.endings.vindicated.title = "진실을 남기고";
+SCENARIO.endings.vindicated.text = "숲에 다다르자 그녀가 먼저 타임머신에 뛰어오른다.\n\n뒤에서는 진짜 도둑이 군중에게 붙들려 끌려간다. 당신이 기억해 둔 그 얼굴이다. 한 달의 누명은 이제 임자를 찾았다.\n\n빛이 두 사람을 삼킨다. 이번만은, 아무것도 등 뒤에 남기지 않았다.\n\n— 생존 · 진실을 남기고";
+SCENARIO.endings.togetherNarrow.title = "아슬아슬하게, 함께";
+SCENARIO.endings.togetherNarrow.text = "그녀의 손을 붙든 채 덤불을 헤친다. 횃불이 등을 태울 듯 가깝다. — 꼬박 한 달을 버텼는데, 마지막이 가장 아슬아슬하다.\n\n타임머신에 두 사람이 겹쳐 쓰러지듯 오른 순간, 창끝이 허공을 가른다. 빛이 터지고 — 세상이 뒤집힌다.\n\n간발의 차였다.\n\n— 생존 · 아슬아슬하게 함께";
+SCENARIO.endings.forsaken.title = "혼자만의 귀환";
+SCENARIO.endings.forsaken.text = "당신은 혼자 타임머신에 오른다. 내민 손을 잡지 않았다.\n\n한 달을 함께 버틴 사람을, 마지막 순간에 두고 간다. 마지막으로 본 것은 원망도 놀람도 아닌 — 체념한 얼굴이었다.\n\n돌아온 시대에서도, 그 얼굴은 오래 지워지지 않았다.\n\n— 생존 · 혼자만의 귀환";
+/* 피날레 진입 서사에 '한 달' 각인 */
+SCENARIO.scenes[LAST].intro = "런던에 발이 묶인 지 어느덧 한 달.\n\n" + SCENARIO.scenes[LAST].intro;
+
+/* ============================================================
    상태
    ============================================================ */
-const S = { scene: 0, cardId: null, step: 0, suspicion: 0, trust: 0, coins: 3,
+const S = { scene: 0, cardId: null, step: 0, suspicion: 0, trust: 0, coins: 8,
+            health: 3, healthMax: 3, day: 1, dayMax: 30,
+            hunger: 0, infected: false, plagueDays: 0, lastHarm: null,
             locked: false, lastResult: null, records: [], flags: new Set(),
             queue: [], current: null, showingRandom: false, usedRandom: new Set() };
 
@@ -804,7 +951,8 @@ const el = {
   cardInner: $("cardInner"), fx: $("fx"), cardArt: $("cardArt"),
   resultLine: $("resultLine"), speaker: $("speaker"), cardText: $("cardText"),
   btnLeft: $("btnLeft"), btnRight: $("btnRight"), panel: $("panel"),
-  bgArt: $("bgArt"), scrim: $("scrim"), bgImg: $("bgArtImg"), bgSvg: $("bgArtSvg")
+  bgArt: $("bgArt"), scrim: $("scrim"), bgImg: $("bgArtImg"), bgSvg: $("bgArtSvg"),
+  hud2: $("hud2")
 };
 
 /* ============================================================
@@ -1295,7 +1443,7 @@ function drawRandom(n) {
   for (let i = 0; i < n && eligible.length; i++) {
     const k = Math.floor(Math.random() * eligible.length);
     const c = eligible.splice(k, 1)[0];
-    if (c.once) S.usedRandom.add(c.id);
+    S.usedRandom.add(c.id);   // 한 판에서 뽑힌 랜덤 이벤트는 모두 재사용 금지(중복 방지)
     pick.push(c);
   }
   return pick;
@@ -1328,6 +1476,9 @@ const EYE_SHUT = '<svg width="30" height="18" viewBox="0 0 30 18"><path d="M4 10
 const COIN_SVG = '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5.5 8 H10.5 M8 5.5 V10.5" stroke="currentColor" stroke-width="1.4"/></svg>';
 const TRUST_ICON = '<svg width="30" height="18" viewBox="0 0 30 18"><circle cx="12" cy="9" r="5.4" fill="none" stroke="#5f854c" stroke-width="1.6"/><circle cx="18" cy="9" r="5.4" fill="none" stroke="#5f854c" stroke-width="1.6"/></svg>';
 
+const HEART_FULL = '<svg width="17" height="15" viewBox="0 0 17 15"><path d="M8.5 14 C2 9.5 0.5 6 2.6 3.2 C4.2 1.1 7 1.6 8.5 4.2 C10 1.6 12.8 1.1 14.4 3.2 C16.5 6 15 9.5 8.5 14 Z" fill="#c9403a" stroke="#7a2417" stroke-width="1"/></svg>';
+const HEART_EMPTY = '<svg width="17" height="15" viewBox="0 0 17 15"><path d="M8.5 14 C2 9.5 0.5 6 2.6 3.2 C4.2 1.1 7 1.6 8.5 4.2 C10 1.6 12.8 1.1 14.4 3.2 C16.5 6 15 9.5 8.5 14 Z" fill="none" stroke="#6b5b45" stroke-width="1.4"/></svg>';
+
 function drawGauge() {
   let h = "";
   for (let i = 0; i < SCENARIO.suspicionMax; i++) h += (i < S.suspicion ? EYE_OPEN : EYE_SHUT);
@@ -1336,6 +1487,11 @@ function drawGauge() {
   h += '<span id="purse" class="' + (S.coins <= 0 ? "empty" : "") + '">' +
        COIN_SVG + S.coins + '</span>';
   el.gauge.innerHTML = h;
+  /* 둘째 행: 건강 하트 + 날짜 */
+  let h2 = '<span id="hearts">';
+  for (let i = 0; i < S.healthMax; i++) h2 += (i < S.health ? HEART_FULL : HEART_EMPTY);
+  h2 += '</span><span id="dayTag">Day ' + S.day + ' / ' + S.dayMax + '</span>';
+  if (el.hud2) el.hud2.innerHTML = h2;
 }
 
 function flash(delta) {
@@ -1370,7 +1526,9 @@ function screenIntro() {
   el.topLabel.textContent = "TIME WALKER";
   el.fx.classList.remove("on");
   S.scene = 0; S.cardId = null; S.step = 0;
-  S.suspicion = 0; S.trust = 0; S.coins = 3;
+  S.suspicion = 0; S.trust = 0; S.coins = 8;
+  S.health = 3; S.healthMax = 3; S.day = 1; S.dayMax = 30;
+  S.hunger = 0; S.infected = false; S.plagueDays = 0; S.lastHarm = null;
   S.locked = false; S.lastResult = null; S.records = []; S.flags = new Set();
   S.queue = []; S.current = null; S.showingRandom = false; S.usedRandom = new Set();
   drawGauge();
@@ -1403,16 +1561,20 @@ function screenRules() {
   el.topLabel.textContent = "살아남는 법";
   el.panel.innerHTML =
     '<h2>살아남는 법</h2><div class="rule"></div>' +
-    '<p class="body-text">마주치는 사람마다 당신을 시험한다. 카드를 <b>왼쪽</b>이나 <b>오른쪽</b>으로 밀거나(아래 두 버튼을 눌러) 처신을 고른다. 정답은 없고, 대가만 있다.\n\n화면 맨 위의 눈금이 당신의 처지를 말해 준다.</p>' +
+    '<p class="body-text">목표는 하나 — 정체를 감춘 채 <b>한 달(30일)</b>을 버텨 내는 것. 마주치는 사람마다 당신을 시험한다. 카드를 <b>왼쪽</b>이나 <b>오른쪽</b>으로 밀거나(아래 두 버튼을 눌러) 처신을 고른다. 정답은 없고, 대가만 있다.\n\n화면 맨 위의 눈금이 당신의 처지를 말해 준다.</p>' +
     '<div class="rules-list">' +
       '<div class="rule-item"><span class="ri-ic">' + EYE_OPEN + '</span>' +
         '<div><b>의심</b> — 사람들이 당신을 수상히 여기는 정도. 눈이 끝까지 차오르면, 마녀사냥이 시작된다.</div></div>' +
+      '<div class="rule-item"><span class="ri-ic">' + HEART_FULL + '</span>' +
+        '<div><b>건강</b> — 하트 셋으로 시작한다. 굶주림·추위·역병·폭력이 하트를 깎고, 음식·잠자리·치료로 되찾는다. <b>하트가 모두 꺼지면 죽는다.</b></div></div>' +
       '<div class="rule-item"><span class="ri-ic">' + TRUST_ICON + '</span>' +
         '<div><b>신뢰</b> — 당신에게 곁을 내준 이가 품은 믿음. 마지막 순간, 함께 갈 수 있을지를 가른다.</div></div>' +
       '<div class="rule-item"><span class="ri-ic">' + COIN_SVG + '</span>' +
-        '<div><b>돈</b> — 지갑 속 동전. 입을 막고, 길을 트고, 목숨을 흥정하는 수단.</div></div>' +
+        '<div><b>돈</b> — 지갑 속 동전. 먹고 자고 병을 다스리는 밑천이자, 입을 막고 길을 트는 수단. 마르면 굶고 얼게 된다.</div></div>' +
+      '<div class="rule-item"><span class="ri-ic" style="font-family:\'Noto Serif KR\',serif;font-size:12px;color:#7a2417;font-weight:700">30</span>' +
+        '<div><b>날짜</b> — 화면 위 <b>Day X / 30</b>. 시간은 저절로 흐른다. <b>30일째 살아 있고 발각되지 않으면</b>, 돌아갈 길이 열린다.</div></div>' +
     '</div>' +
-    '<p class="note">굶주림과 병(病)도 곧, 또 다른 방식으로 당신을 시험할 것이다.</p>' +
+    '<p class="note">1349년, 런던엔 ‘큰 죽음’(흑사병)이 돌고 있다. 자원을 아껴 하루하루를 버텨라.</p>' +
     '<button class="btn" id="go">거리로 나선다</button>';
   refade(el.panel);
   show("panel");
@@ -1429,6 +1591,12 @@ function artHTML(sc) {
 
 function screenNarration() {
   const sc = SCENARIO.scenes[S.scene];
+  /* 장면 이동 = 며칠이 흐른다 (첫 장면 제외). 굶주림·역병이 몸을 깎을 수 있다 */
+  if (S.scene > 0) {
+    advanceDay(S.scene === LAST ? DAY_SCENE + 1 : DAY_SCENE);  // 피날레 밤 = 30일째
+    drawGauge();
+    if (S.health <= 0) { gameOverDeath(); return; }
+  }
   el.topLabel.textContent = sc.label + " · " + sc.title;
   const res = takeResult();
   el.panel.innerHTML =
@@ -1442,7 +1610,13 @@ function screenNarration() {
   $("go").onclick = () => {
     S.cardId = sc.cards[0].id;
     S.step = 0;
-    S.queue = drawRandom(Math.random() < 0.45 ? 2 : 1);
+    S.queue = [];
+    /* 마지막 고비(피날레)에는 랜덤·생존 카드를 억제, 서사 카드만 */
+    if (S.scene !== LAST) {
+      const sids = SURVIVAL_BY_SCENE[S.scene] || [];
+      for (const id of sids) if (SURVIVAL[id]) S.queue.push(SURVIVAL[id]);
+      S.queue = S.queue.concat(drawRandom(Math.random() < 0.45 ? 2 : 1));
+    }
     screenCard();
   };
 }
@@ -1512,18 +1686,27 @@ function resolveEnding(kind) {
 }
 
 function screenEnding(key) {
-  try { (key === "caught") ? SFX.endCaught() : SFX.endWin(); } catch (e) {}
-  const e = (key === "caught")
-    ? (SCENARIO.caughtEndings[S.scene] || SCENARIO.endings.caught)
-    : SCENARIO.endings[key];
+  let e, win = false;
+  if (key === "caught") {
+    e = SCENARIO.caughtEndings[S.scene] || SCENARIO.endings.caught;
+  } else if (key.indexOf("death:") === 0) {
+    const c = key.slice(6);
+    e = (SCENARIO.deathEndings && SCENARIO.deathEndings[c]) || SCENARIO.deathEndings.starve;
+  } else {
+    e = SCENARIO.endings[key]; win = true;
+  }
+  try { win ? SFX.endWin() : SFX.endCaught(); } catch (e2) {}
   el.topLabel.textContent = "TIME WALKER";
   const res = takeResult();
+  let hearts = "";
+  for (let i = 0; i < S.healthMax; i++) hearts += (i < S.health ? "♥" : "♡");
   el.panel.innerHTML =
     (res ? '<div class="result-line">' + res + '</div>' : '') +
     '<h1>' + e.title + '</h1><div class="rule"></div>' +
     '<p class="body-text">' + e.text + '</p>' +
-    '<div class="stat">최종 의심도 ' + Math.min(S.suspicion, SCENARIO.suspicionMax) + ' / ' + SCENARIO.suspicionMax +
-    ' · 신뢰 ' + S.trust + (key === "caught" ? "" : " (" + SCENARIO.trustThreshold + " 이상이면 함께 탈출)") + '</div>' +
+    '<div class="stat">버틴 날 ' + S.day + ' / ' + S.dayMax + '일 · 건강 ' + hearts +
+    ' · 의심 ' + Math.min(S.suspicion, SCENARIO.suspicionMax) + ' / ' + SCENARIO.suspicionMax +
+    ' · 신뢰 ' + S.trust + (win ? " (" + SCENARIO.trustThreshold + " 이상이면 함께 귀환)" : "") + '</div>' +
     recordsHTML() +
     '<button class="btn" id="go">다시 시간을 거슬러</button>';
   refade(el.panel);
@@ -1531,12 +1714,24 @@ function screenEnding(key) {
   $("go").onclick = screenIntro;
 }
 
-/* 붙잡힘: 화면이 어두워진 뒤 엔딩으로 */
+/* 붙잡힘(마녀사냥): 화면이 어두워진 뒤 엔딩으로 */
 function gameOverCaught() {
   el.fx.classList.add("on");
   setTimeout(() => {
     el.fx.classList.remove("on");
     screenEnding("caught");
+  }, 1100);
+}
+
+/* 사망(건강 0): 사인에 맞는 엔딩으로 */
+function gameOverDeath() {
+  const cause = (S.lastHarm === "plague") ? "plague"
+              : (S.lastHarm === "cold") ? "cold"
+              : (S.lastHarm === "violence") ? "violence" : "starve";
+  el.fx.classList.add("on");
+  setTimeout(() => {
+    el.fx.classList.remove("on");
+    screenEnding("death:" + cause);
   }, 1100);
 }
 
@@ -1579,15 +1774,30 @@ function choose(dir) {
     S.suspicion = Math.max(0, S.suspicion + d);
     S.trust += t;
     S.coins = Math.max(0, S.coins + (ch.coins || 0));
+
+    /* ── 건강 · 굶주림 · 역병 ── */
+    const hp = ch.health || 0;
+    S.health = Math.max(0, Math.min(S.healthMax, S.health + hp));
+    if (hp < 0) S.lastHarm = ch.cold ? "cold" : (ch.violence ? "violence" : (S.lastHarm || "starve"));
+    if (ch.eat && !failed) S.hunger = 0;                       // 먹으면 허기 리셋
+    if (ch.cure && !failed) { S.infected = false; S.plagueDays = 0; }  // 치료 → 역병 해제
+    if (ch.infect && !failed) S.infected = true;               // 병자 접촉 → 감염
+
     S.lastResult = (ch.result || "") + extra || null;
     if (ch.flag) S.flags.add(ch.flag);
     try { if (d > 0) SFX.suspicion(); else if (t > 0) SFX.trust(); if ((ch.coins || 0) < 0) SFX.coin(); } catch (e) {}
+
+    /* 생존 카드였다면 하루를 살아 낸다 (달력 진행 + 굶주림/역병 누적) */
+    if (S.showingRandom && S.current && S.current.survival) { advanceDay(DAY_SURV); survivalTick(); }
+
     drawGauge();
     flash(d);
 
+    /* ── 실패 판정: 건강 0 → 사망, 의심 최대 → 마녀사냥 ── */
+    if (S.health <= 0) { gameOverDeath(); return; }
     if (S.suspicion >= SCENARIO.suspicionMax) { gameOverCaught(); return; }
 
-    /* 무작위 카드였다면 큐에서 빼고 이어서 진행 */
+    /* 무작위/생존 카드였다면 큐에서 빼고 이어서 진행 */
     if (S.showingRandom) {
       S.queue.shift();
       screenCard();
@@ -1604,7 +1814,8 @@ function choose(dir) {
     if (typeof next === "object") next = S.flags.has(next.flag) ? next.then : next.else;
     if (next !== "END") {
       S.cardId = next;
-      if (Math.random() < 0.28) S.queue = S.queue.concat(drawRandom(1));
+      /* 피날레에서는 랜덤 억제(서사 카드만) */
+      if (S.scene !== LAST && Math.random() < 0.28) S.queue = S.queue.concat(drawRandom(1));
       screenCard();
     } else {
       S.records.push(sc.record);
@@ -1613,7 +1824,7 @@ function choose(dir) {
         try { SFX.transition(); } catch (e) {}
         screenNarration();
       } else {
-        screenEnding(S.trust >= SCENARIO.trustThreshold ? "together" : "alone");
+        screenEnding(resolveEnding("tryTogether"));
       }
     }
   }, 260);
