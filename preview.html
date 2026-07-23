@@ -40,6 +40,11 @@
     font-family: 'Noto Serif KR', serif; }
   #purse svg { width: 15px; height: 15px; }
   #purse.empty { color: #6b5b45; }
+  #trust { display: inline-flex; align-items: center; gap: 3px;
+    margin-left: 10px; font-size: 12px; color: #6f9a57;
+    font-family: 'Noto Serif KR', serif; }
+  #trust svg { width: 21px; height: 13px; }
+  #trust.neg { color: #a86b52; }
   #feedback { height: 20px; font-size: 13px; font-family: 'Noto Serif KR', serif;
     opacity: 0; transition: opacity .2s; text-align: center; }
   #feedback.show { opacity: 1; }
@@ -55,7 +60,8 @@
     color: #2a221a; border-radius: 6px;
     box-shadow: 0 18px 44px rgba(0,0,0,.55), inset 0 0 60px rgba(120,90,50,.14);
   }
-  .panel { padding: 30px 24px; text-align: center; flex: 1; min-height: 0; overflow-y: auto;
+  .panel { padding: 30px 24px; text-align: center; flex: 1; min-height: 0;
+    overflow-y: auto; overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     display: flex; flex-direction: column; justify-content: safe center; }
   h1 { font-family: 'Noto Serif KR', serif; font-weight: 700; font-size: clamp(26px, 7vw, 32px);
@@ -147,15 +153,17 @@
   .scene-min { width: 100%; display: block; margin: 0 auto 14px; }
 
   /* ── 장면 배경 삽화 ── */
-  .band-wrap { position: relative; margin: -30px -26px 10px; }
-  .band-wrap.in-panel { margin: -34px -26px 20px; }
+  /* 패널 좌우 padding(24px)과 정확히 맞춰 가로 오버플로(스크롤바) 방지 */
+  .band-wrap { position: relative; margin: -30px -24px 10px; max-width: none; }
+  .band-wrap.in-panel { margin: -34px -24px 20px; }
   .band { width: 100%; display: block; border-radius: 6px 6px 0 0;
     border-bottom: 1px solid #c0a878; }
   img.band { width: 100%; height: auto; max-height: min(400px, 44dvh); object-fit: contain;
     background: #17110c;
     filter: sepia(.12) contrast(.97) saturate(.94); }
   .art-cap { font-size: 9.5px; line-height: 1.5; color: #8a7455;
-    padding: 5px 26px 0; text-align: right; letter-spacing: .02em; }
+    padding: 5px 24px 0; text-align: right; letter-spacing: .02em;
+    white-space: normal; overflow-wrap: anywhere; word-break: keep-all; }
   .medallion { position: absolute; right: 10px; bottom: -18px;
     width: 44px; height: 44px; border-radius: 50%;
     background: #efe4cd; border: 1.5px solid #b07f2e;
@@ -207,11 +215,30 @@
     #speaker { margin-bottom: 8px; }
     #hint { margin-top: 8px; }
     img.band { max-height: min(300px, 34dvh); }   /* 짧은 화면: 명화 약간 축소 + 본문 스크롤로 흡수 */
+    /* 짧은 화면: 인트로/프롤로그/규칙·장면 인트로 패널이 넘쳐 버튼이 가려지지 않게
+       여백·폰트 축소 + 버튼을 패널 하단에 고정(스크롤 없이 항상 보이게) */
+    .panel { padding: 16px 20px; justify-content: flex-start; }
+    .panel h1 { font-size: clamp(21px, 6vw, 26px); }
+    .panel h2 { font-size: clamp(17px, 5vw, 20px); }
+    .panel .rule { margin: 9px auto 12px; }
+    .body-text { line-height: 1.6; margin-bottom: 13px; }
+    .tagline { line-height: 1.6; margin-bottom: 15px; }
+    .rules-list { gap: 8px; margin: 4px 0 12px; }
+    .rule-item { line-height: 1.45; }
+    .title-eye { width: 60px; margin: 2px auto 9px; }
+    .title-sub { margin-top: 8px; }
+    .panel .note { margin: 8px 0 0; }
+    .panel .btn { position: sticky; bottom: 0; margin-top: auto; }
   }
   @media (max-height: 560px) {
     #card { padding: 18px 20px; }
     .band-wrap { margin: -18px -20px 7px; }
     img.band { max-height: min(240px, 30dvh); }
+    .panel { padding: 12px 18px; }
+    .body-text { line-height: 1.5; margin-bottom: 10px; }
+    .tagline { line-height: 1.5; margin-bottom: 12px; }
+    .rules-list { gap: 6px; margin: 3px 0 10px; }
+    .panel .rule { margin: 7px auto 9px; }
   }
   /* 데스크톱: 카드 프레임이 지나치게 길어지지 않게 */
   @media (min-width: 700px) and (min-height: 760px) {
@@ -246,10 +273,23 @@
     text-shadow: 0 1px 3px rgba(0,0,0,.92), 0 0 10px rgba(0,0,0,.6); }
   body.mode-card #feedback { text-shadow: 0 1px 3px rgba(0,0,0,.9); }
   body.mode-card .dot { box-shadow: 0 0 5px rgba(0,0,0,.85); }
+  body.mode-card #trust { color: #a9c98f;
+    text-shadow: 0 1px 3px rgba(0,0,0,.92), 0 0 8px rgba(0,0,0,.6); }
+  body.mode-card #trust.neg { color: #d8a789; }
+  body.mode-card #purse { text-shadow: 0 1px 3px rgba(0,0,0,.9); }
   body.mode-card #speaker { color: #f0c975;
     text-shadow: 0 1px 3px rgba(0,0,0,.95), 0 0 8px rgba(0,0,0,.7); }
   body.mode-card #cardText { color: #f7f0e2;
     text-shadow: 0 1px 3px rgba(0,0,0,.95), 0 1px 10px rgba(0,0,0,.75); }
+  /* 본문 뒤 은은한 국소 어둠막 — 밝은 명화(대성당·시장) 위에서도 읽히게.
+     명화를 과하게 가리지 않도록 좌우는 카드 여백만큼 비워 둠(투명 오버레이 유지) */
+  body.mode-card #cardInner {
+    background: linear-gradient(180deg,
+      rgba(9,6,4,.26) 0%, rgba(9,6,4,.44) 46%, rgba(9,6,4,.52) 100%);
+    border-radius: 12px;
+    padding: 16px 16px 20px;
+    -webkit-backdrop-filter: blur(2.5px); backdrop-filter: blur(2.5px);
+    box-shadow: 0 8px 30px rgba(0,0,0,.30); }
   body.mode-card #resultLine { color: #ecdfc6; border-left-color: #d9a441;
     text-shadow: 0 1px 3px rgba(0,0,0,.9); }
   body.mode-card #hint { color: #ecdcb9; text-shadow: 0 1px 3px rgba(0,0,0,.95); }
@@ -1287,6 +1327,8 @@ const TRUST_ICON = '<svg width="30" height="18" viewBox="0 0 30 18"><circle cx="
 function drawGauge() {
   let h = "";
   for (let i = 0; i < SCENARIO.suspicionMax; i++) h += (i < S.suspicion ? EYE_OPEN : EYE_SHUT);
+  h += '<span id="trust" class="' + (S.trust < 0 ? "neg" : "") + '">' +
+       TRUST_ICON + S.trust + '</span>';
   h += '<span id="purse" class="' + (S.coins <= 0 ? "empty" : "") + '">' +
        COIN_SVG + S.coins + '</span>';
   el.gauge.innerHTML = h;
@@ -1476,7 +1518,7 @@ function screenEnding(key) {
     (res ? '<div class="result-line">' + res + '</div>' : '') +
     '<h1>' + e.title + '</h1><div class="rule"></div>' +
     '<p class="body-text">' + e.text + '</p>' +
-    '<div class="stat">최종 의심도 ' + S.suspicion + ' / ' + SCENARIO.suspicionMax +
+    '<div class="stat">최종 의심도 ' + Math.min(S.suspicion, SCENARIO.suspicionMax) + ' / ' + SCENARIO.suspicionMax +
     ' · 신뢰 ' + S.trust + (key === "caught" ? "" : " (" + SCENARIO.trustThreshold + " 이상이면 함께 탈출)") + '</div>' +
     recordsHTML() +
     '<button class="btn" id="go">다시 시간을 거슬러</button>';
@@ -1663,7 +1705,20 @@ function bgLayout() {
   BG.x = BG.minX / 2;               /* 처음엔 중앙 */
   BG.y = BG.minY / 2;
   BG.ready = true;
+  updatePanHint();                  /* 실제 팬 가능 방향에 맞춰 안내 문구 갱신 */
   bgApply();
+}
+/* 명화가 cover로 어느 축이 넘치는지에 따라 안내 문구를 실제 동작에 맞게 표시 */
+function updatePanHint() {
+  const hintEl = document.getElementById("hint");
+  if (!hintEl) return;
+  const canX = BG.minX < -2, canY = BG.minY < -2;
+  const dir = (canX && canY) ? "이리저리 끌어"
+            : canX ? "좌우로 끌어"
+            : canY ? "위아래로 끌어"
+            : "";
+  hintEl.textContent = dir ? (dir + " 그림을 살펴보세요 · 아래에서 선택")
+                           : "아래에서 선택";
 }
 function bgClamp() {
   if (BG.x > 0) BG.x = 0; else if (BG.x < BG.minX) BG.x = BG.minX;
