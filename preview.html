@@ -218,9 +218,52 @@
     #app { max-width: 460px; }
   }
 
+  /* ══════════════════════════════════════════════════════════
+     풀배경 명화 + 투명 텍스트 오버레이 (게임플레이 카드 전용)
+     ══════════════════════════════════════════════════════════ */
+  #bgArt { position: fixed; inset: 0; z-index: 0; overflow: hidden;
+    background: #17110c; touch-action: none; cursor: grab; }
+  #bgArt:active { cursor: grabbing; }
+  #bgArtImg { position: absolute; left: 0; top: 0; max-width: none;
+    will-change: transform; transform: translate3d(0,0,0);
+    filter: sepia(.10) contrast(.98) saturate(.96);
+    -webkit-user-drag: none; user-select: none; pointer-events: none; }
+  #bgArtSvg { position: absolute; inset: 0; width: 100%; height: 100%; display: none; }
+
+  #scrim { position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    background:
+      linear-gradient(to bottom, rgba(6,4,3,.50) 0%, rgba(6,4,3,.10) 14%, rgba(6,4,3,0) 26%),
+      linear-gradient(to top, rgba(6,4,3,.74) 0%, rgba(6,4,3,.44) 26%, rgba(6,4,3,.12) 46%, rgba(6,4,3,0) 62%); }
+
+  body.mode-card { background: #17110c; }
+  body.mode-card #app { position: relative; z-index: 2; pointer-events: none; }
+  body.mode-card #choices, body.mode-card .choice { pointer-events: auto; }
+
+  /* 카드 = 투명 오버레이 (양피지 패널 제거) */
+  body.mode-card #card { background: none !important; box-shadow: none !important;
+    border-radius: 0; }
+  body.mode-card #topLabel { color: #f0e5cf;
+    text-shadow: 0 1px 3px rgba(0,0,0,.92), 0 0 10px rgba(0,0,0,.6); }
+  body.mode-card #feedback { text-shadow: 0 1px 3px rgba(0,0,0,.9); }
+  body.mode-card .dot { box-shadow: 0 0 5px rgba(0,0,0,.85); }
+  body.mode-card #speaker { color: #f0c975;
+    text-shadow: 0 1px 3px rgba(0,0,0,.95), 0 0 8px rgba(0,0,0,.7); }
+  body.mode-card #cardText { color: #f7f0e2;
+    text-shadow: 0 1px 3px rgba(0,0,0,.95), 0 1px 10px rgba(0,0,0,.75); }
+  body.mode-card #resultLine { color: #ecdfc6; border-left-color: #d9a441;
+    text-shadow: 0 1px 3px rgba(0,0,0,.9); }
+  body.mode-card #hint { color: #ecdcb9; text-shadow: 0 1px 3px rgba(0,0,0,.95); }
+  body.mode-card #choices .choice {
+    background: rgba(18,14,10,.80); border-color: #6b5836; color: #eeddbd;
+    text-shadow: 0 1px 2px rgba(0,0,0,.9);
+    box-shadow: 0 3px 14px rgba(0,0,0,.45); }
+  body.mode-card #choices .choice.armed { border-color: #d9a441; color: #f0c975; }
+
 </style>
 </head>
 <body>
+<div id="bgArt" class="hidden"><svg id="bgArtSvg" viewBox="0 0 320 140" preserveAspectRatio="xMidYMid slice"></svg><img id="bgArtImg" alt="" onerror="bgImgFail()"></div>
+<div id="scrim" class="hidden"></div>
 <div id="app">
   <header>
     <div id="topLabel">14세기 런던 · 프로토타입</div>
@@ -237,7 +280,7 @@
           <div id="speaker"></div>
           <p id="cardText"></p>
         </div>
-        <div id="hint">◂ 밀어서 선택 ▸</div>
+        <div id="hint">그림을 끌어 살펴보세요 · 아래에서 선택</div>
       </div>
       <div id="choices">
         <button class="choice" id="btnLeft"></button>
@@ -716,7 +759,8 @@ const el = {
   progress: $("progress"), cardZone: $("cardZone"), card: $("card"),
   cardInner: $("cardInner"), fx: $("fx"), cardArt: $("cardArt"),
   resultLine: $("resultLine"), speaker: $("speaker"), cardText: $("cardText"),
-  btnLeft: $("btnLeft"), btnRight: $("btnRight"), panel: $("panel")
+  btnLeft: $("btnLeft"), btnRight: $("btnRight"), panel: $("panel"),
+  bgArt: $("bgArt"), scrim: $("scrim"), bgImg: $("bgArtImg"), bgSvg: $("bgArtSvg")
 };
 
 /* ============================================================
@@ -1256,9 +1300,13 @@ function flash(delta) {
 }
 
 function show(which) {
-  el.cardZone.classList.toggle("hidden", which !== "card");
-  el.progress.classList.toggle("hidden", which !== "card");
+  const isCard = which === "card";
+  el.cardZone.classList.toggle("hidden", !isCard);
+  el.progress.classList.toggle("hidden", !isCard);
   el.panel.classList.toggle("hidden", which !== "panel");
+  document.body.classList.toggle("mode-card", isCard);
+  el.bgArt.classList.toggle("hidden", !isCard);
+  el.scrim.classList.toggle("hidden", !isCard);
 }
 
 function takeResult() {
@@ -1377,7 +1425,8 @@ function screenCard() {
   el.resultLine.textContent = res || "";
   el.resultLine.classList.toggle("hidden", !res);
 
-  el.cardArt.innerHTML = bandHTML(S.scene, ik, false);
+  el.cardArt.innerHTML = "";
+  bgShow(S.scene);
 
   el.speaker.textContent = c.speaker || "";
   el.cardText.textContent = c.text;
@@ -1387,7 +1436,8 @@ function screenCard() {
   el.btnRight.classList.remove("armed");
 
   el.card.style.transition = "none";
-  el.card.style.transform = "translateX(0) rotate(0deg)";
+  el.card.style.opacity = "1";
+  el.card.style.transform = "none";
   refade(el.cardInner);
   S.locked = false;
   show("card");
@@ -1463,8 +1513,8 @@ function choose(dir) {
     ch = Object.assign({}, ch, ch.fail || {}, { coins: 0, next: ch.next, ending: ch.ending });
   }
 
-  el.card.style.transition = "transform .26s ease";
-  el.card.style.transform = "translateX(" + (dir === "left" ? -460 : 460) + "px) rotate(" + (dir === "left" ? -22 : 22) + "deg)";
+  el.card.style.transition = "opacity .22s ease";
+  el.card.style.opacity = "0";
 
   setTimeout(() => {
     let d = ch.suspicion || 0;
@@ -1582,6 +1632,92 @@ if (window.PointerEvent) {
   window.addEventListener("mousemove", e => dragMove(e.clientX, e.clientY));
   window.addEventListener("mouseup", dragEnd);
 }
+
+/* ============================================================
+   풀배경 명화 + 팬(pan) 조작
+   - 게임플레이 카드에서 명화를 뷰포트 풀배경(cover)으로 깔고,
+     손가락/마우스 드래그로 상하좌우 훑어보게 한다.
+   - 기존 카드 스와이프-선택은 카드가 pointer-events:none 이라 비활성.
+     선택은 하단 두 버튼으로만 (조작 분리).
+   ============================================================ */
+function paintingSrc(idx) {
+  const p = SCENE_PAINTING[idx];
+  if (!p) return "";
+  return EMBED[p.file] ||
+    ("https://commons.wikimedia.org/wiki/Special:FilePath/" + encodeURIComponent(p.file) + "?width=1200");
+}
+const BG = { natW: 0, natH: 0, x: 0, y: 0, minX: 0, minY: 0, ready: false };
+function bgImgFail() {              /* 명화 로딩 실패 → 내장 SVG 세밀화로 대체 */
+  el.bgImg.style.display = "none";
+  el.bgSvg.style.display = "block";
+}
+function bgLayout() {
+  const w = el.bgArt.clientWidth, h = el.bgArt.clientHeight;
+  if (!BG.natW || !BG.natH || !w || !h) return;
+  const scale = Math.max(w / BG.natW, h / BG.natH);   /* cover */
+  const iw = BG.natW * scale, ih = BG.natH * scale;
+  el.bgImg.style.width = iw + "px";
+  el.bgImg.style.height = ih + "px";
+  BG.minX = Math.min(0, w - iw);
+  BG.minY = Math.min(0, h - ih);
+  BG.x = BG.minX / 2;               /* 처음엔 중앙 */
+  BG.y = BG.minY / 2;
+  BG.ready = true;
+  bgApply();
+}
+function bgClamp() {
+  if (BG.x > 0) BG.x = 0; else if (BG.x < BG.minX) BG.x = BG.minX;
+  if (BG.y > 0) BG.y = 0; else if (BG.y < BG.minY) BG.y = BG.minY;
+}
+function bgApply() {
+  el.bgImg.style.transform = "translate3d(" + BG.x + "px," + BG.y + "px,0)";
+}
+function bgShow(idx) {
+  el.bgSvg.innerHTML = SCENE_ART[idx] || "";
+  el.bgSvg.style.display = "none";
+  el.bgImg.style.display = "block";
+  BG.ready = false;
+  const done = () => {
+    BG.natW = el.bgImg.naturalWidth || 320;
+    BG.natH = el.bgImg.naturalHeight || 140;
+    bgLayout();
+  };
+  el.bgImg.onload = done;
+  const src = paintingSrc(idx);
+  if (el.bgImg.getAttribute("src") !== src) el.bgImg.setAttribute("src", src);
+  if (el.bgImg.complete && el.bgImg.naturalWidth) done();
+}
+/* ── 팬 제스처 (드래그 = 명화 감상) ── */
+let panning = false, panSX = 0, panSY = 0, panOX = 0, panOY = 0, panId = null;
+function panStart(x, y) {
+  if (!BG.ready) return;
+  panning = true; panSX = x; panSY = y; panOX = BG.x; panOY = BG.y;
+}
+function panMove(x, y) {
+  if (!panning) return;
+  BG.x = panOX + (x - panSX);
+  BG.y = panOY + (y - panSY);
+  bgClamp();
+  bgApply();
+}
+function panEnd() { panning = false; panId = null; }
+if (window.PointerEvent) {
+  el.bgArt.addEventListener("pointerdown", e => {
+    panId = e.pointerId; panStart(e.clientX, e.clientY);
+    try { el.bgArt.setPointerCapture(panId); } catch (_) {}
+  });
+  el.bgArt.addEventListener("pointermove", e => panMove(e.clientX, e.clientY));
+  el.bgArt.addEventListener("pointerup", panEnd);
+  el.bgArt.addEventListener("pointercancel", panEnd);
+} else {
+  el.bgArt.addEventListener("touchstart", e => panStart(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+  el.bgArt.addEventListener("touchmove", e => { panMove(e.touches[0].clientX, e.touches[0].clientY); if (panning) e.preventDefault(); }, { passive: false });
+  el.bgArt.addEventListener("touchend", panEnd);
+  el.bgArt.addEventListener("mousedown", e => panStart(e.clientX, e.clientY));
+  window.addEventListener("mousemove", e => panMove(e.clientX, e.clientY));
+  window.addEventListener("mouseup", panEnd);
+}
+window.addEventListener("resize", () => { if (BG.ready) bgLayout(); });
 
 screenIntro();
 </script>
