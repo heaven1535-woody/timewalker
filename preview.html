@@ -365,7 +365,7 @@ const SCENARIO = {
       label: "장면 1", title: "시장 거리",
       art: { file: "Medieval market.jpg",
              caption: "중세 시장 풍경 — 퍼블릭 도메인 (Wikimedia Commons)" },
-      intro: "사우스워크 외곽의 시장 거리.\n\n생선 비린내와 하수 냄새가 뒤섞여 코를 찌른다. 좌판마다 호객 소리가 넘치고, 당신은 그 속에서 최대한 눈에 띄지 않으려 애쓴다.",
+      intro: "사우스워크 외곽의 시장 거리.\n\n생선 비린내와 하수 냄새가 뒤섞여 코를 찌른다. 좌판마다 호객 소리가 넘치고, 당신은 그 속에서 눈에 띄지 않으려 애쓴다.",
       cards: [
         { id: "m1", speaker: "파이 장수",
           text: "\u201c갓 구운 장어 파이요!\u201d\n\n장수가 당신의 행색을 위아래로 훑더니 값을 부른다. \u201c2펜스요.\u201d 방금 앞 손님은 절반만 내고 갔다.",
@@ -415,7 +415,7 @@ const SCENARIO = {
           right: { label: "\u201c…얼마요?\u201d", suspicion: 2, trust: 0,
                    result: "사내의 눈이 번뜩인다. \u201c봉이 하나 걸렸군.\u201d 당신은 서둘러 자리를 뜬다." } },
         { id: "g2", speaker: "",
-          text: "기대앉은 여인 하나와 눈이 마주친다.\n\n짙은 화장 아래, 지친 눈빛이 당신을 가늠하고 있다.",
+          text: "기대앉은 여인 하나와 눈이 마주친다.\n\n짙은 화장 아래, 지친 눈빛이 당신을 가늠한다.",
           left:  { label: "서둘러 지나친다", suspicion: 0, trust: 0,
                    result: "여인이 흥미를 잃은 듯 고개를 돌린다." },
           right: { label: "가볍게 목례한다", suspicion: 0, trust: 1,
@@ -425,7 +425,7 @@ const SCENARIO = {
           left:  { label: "뱃삯을 치르고 오른다", suspicion: -1, trust: 0, coins: -1, need: "coins",
                    fail: { suspicion: 1, trust: 0,
                            result: "동전이 없다. 사공이 콧방귀를 뀐다. “삯도 없이 어딜. 걸어서 다리로 돌아가쇼.” 괜한 실랑이에 눈길이 모인다." },
-                   result: "사공이 노를 젓는다. 자연스레 강을 건너는 당신을, 아무도 수상히 보지 않는다." },
+                   result: "사공이 노를 젓는다. 강을 건너는 당신을, 아무도 수상히 여기지 않는다." },
           right: { label: "“그냥 걸어가겠소”", suspicion: 0, trust: 0,
                    result: "사공이 어깨를 으쓱한다. 다리 쪽으로 발길을 돌리자, 골목은 다시 좁아진다." } },
         { id: "g3", speaker: "시 관리",
@@ -541,7 +541,7 @@ const SCENARIO = {
           left:  { label: "함께 무릎 꿇고 우러른다", suspicion: -1, trust: 0,
                    result: "당신도 돌바닥에 무릎을 댄다. 고개를 숙이니, 아무도 당신을 보지 않는다." },
           right: { label: "어리둥절해 선 채 두리번거린다", suspicion: 2, trust: 0, flag: "marked",
-                   result: "모두가 엎드린 가운데 홀로 선 사람은 오직 당신뿐이다. 기둥 옆, 검은 옷의 소환리 하나가 그런 당신을 오래 응시한다." } },
+                   result: "모두가 엎드린 가운데 홀로 선 사람은 당신뿐이다. 기둥 옆, 검은 옷의 소환리 하나가 그런 당신을 오래 응시한다." } },
         { id: "her_coach", speaker: "그녀",
           text: "그녀가 당신의 소매를 잡아 끌어 앉히며 낮게 속삭인다.\n\n“우러르는 ‘척’만 해도 충분해요. 여기선 진심을 묻는 사람은 없어요.”",
           left:  { label: "말없이 그녀를 따른다", suspicion: -1, trust: 1,
@@ -650,7 +650,7 @@ const SCENARIO = {
           right: { label: "“이런 천 조각이 무슨 소용이오”", suspicion: 2, trust: 0,
                    result: "방 안이 찬물을 끼얹은 듯 조용해진다. 성물을 의심하는 말은, 이 시대에 가장 위험한 말 중 하나다." } },
         { id: "water", speaker: "산파",
-          text: "산파가 문틈으로 다시 외친다.\n\n“물! 더운물이 계속 필요해! 게으름 피우는 손은 필요 없어!” 화덕의 솥이 김을 뿜는다.",
+          text: "산파가 문틈으로 다시 외친다.\n\n“물! 더운물이 계속 필요해! 게으른 손은 필요 없어!” 화덕의 솥이 김을 뿜는다.",
           left:  { label: "말없이 물을 길어 나른다", suspicion: -1, trust: 1,
                    result: "몇 번을 오가자 산파의 말투가 누그러진다. 여기선 백 마디 변명보다 물 한 동이가 당신을 증명한다." },
           right: { label: "어정쩡하게 서 있는다", suspicion: 1, trust: 0,
@@ -842,7 +842,7 @@ const SURVIVAL = {
              result: "빈손이지만 고개는 숙이지 않았다. 조용히 자리를 뜨는 당신을 아무도 눈여겨보지 않는다." } },
 
   s_plague: { id: "s_plague", survival: true, icon: "clap", speaker: "이웃 사내",
-    text: "골목 어귀 집 문에 붉은 십자가가 그려져 있다. 안에서 신음이 새어 나온다.\n\n“역병이오. ‘큰 죽음’이 북에서 내려왔다더니… 손대지 마쇼.”",
+    text: "골목 어귀 집 문에 붉은 십자가가 그려져 있다. 안에서 신음이 새어 나온다.\n\n“역병이오. ‘큰 죽음’이 남쪽에서 올라왔다더니… 손대지 마쇼.”",
     left:  { label: "물이라도 떠다 문 앞에 둔다", trust: 1, infect: true,
              result: "차마 그냥 지나치지 못한다. 문 앞에 물동이를 두고 물러서지만 — 그 탁한 공기를 들이마신 게 마음에 걸린다." },
     right: { label: "코를 막고 서둘러 지난다", suspicion: 0,
@@ -925,7 +925,7 @@ SCENARIO.caughtEndings = [
 SCENARIO.endings.together.title = "함께 돌아가다";
 SCENARIO.endings.together.text = "숲에 다다르자 그녀가 먼저 타임머신에 뛰어오른다. — 런던에서의 한 달이, 이 한순간을 위한 것이었다.\n\n눈부신 빛이 두 사람을 삼킨다. 돌아갈 길이, 마침내 열렸다.\n\n— 생존 · 함께 돌아가다";
 SCENARIO.endings.alone.title = "홀로 돌아가다";
-SCENARIO.endings.alone.text = "꼬박 한 달을 버텨 낸 끝에, 돌아갈 길이 열렸다.\n\n돌아보니 그녀는 군중에게 붙잡혀 멀어져 간다. 빛이 당신 혼자만을 삼킨다. 살아남았으나, 마음 한켠은 저 시대에 남는다.\n\n— 생존 · 홀로 돌아가다";
+SCENARIO.endings.alone.text = "꼬박 한 달을 버텨 낸 끝에, 돌아갈 길이 열렸다.\n\n돌아보니 그녀는 군중에게 붙잡혀 멀어져 간다. 빛이 당신 혼자만을 삼킨다. 살아남았으나, 마음 한편은 저 시대에 남는다.\n\n— 생존 · 홀로 돌아가다";
 SCENARIO.endings.vindicated.title = "진실을 남기고";
 SCENARIO.endings.vindicated.text = "숲에 다다르자 그녀가 먼저 타임머신에 뛰어오른다.\n\n뒤에서는 진짜 도둑이 군중에게 붙들려 끌려간다. 당신이 기억해 둔 그 얼굴이다. 한 달의 누명은 이제 임자를 찾았다.\n\n빛이 두 사람을 삼킨다. 이번만은, 아무것도 등 뒤에 남기지 않았다.\n\n— 생존 · 진실을 남기고";
 SCENARIO.endings.togetherNarrow.title = "아슬아슬하게, 함께";
@@ -1561,7 +1561,7 @@ function screenRules() {
   el.topLabel.textContent = "살아남는 법";
   el.panel.innerHTML =
     '<h2>살아남는 법</h2><div class="rule"></div>' +
-    '<p class="body-text">목표는 하나 — 정체를 감춘 채 <b>한 달(30일)</b>을 버텨 내는 것. 마주치는 사람마다 당신을 시험한다. 카드를 <b>왼쪽</b>이나 <b>오른쪽</b>으로 밀거나(아래 두 버튼을 눌러) 처신을 고른다. 정답은 없고, 대가만 있다.\n\n화면 맨 위의 눈금이 당신의 처지를 말해 준다.</p>' +
+    '<p class="body-text">목표는 하나 — 정체를 감춘 채 <b>한 달(30일)</b>을 버텨 내는 것. 마주치는 사람마다 당신을 시험한다. 카드를 <b>왼쪽</b>이나 <b>오른쪽</b>으로 밀어(또는 아래 두 버튼을 눌러) 처신을 고른다. 정답은 없고, 대가만 있다.\n\n화면 맨 위의 눈금이 당신의 처지를 말해 준다.</p>' +
     '<div class="rules-list">' +
       '<div class="rule-item"><span class="ri-ic">' + EYE_OPEN + '</span>' +
         '<div><b>의심</b> — 사람들이 당신을 수상히 여기는 정도. 눈이 끝까지 차오르면, 마녀사냥이 시작된다.</div></div>' +
