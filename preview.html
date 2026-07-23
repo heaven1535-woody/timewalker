@@ -868,6 +868,20 @@ const SURVIVAL = {
 const SURVIVAL_BY_SCENE = { 1: ["s_food"], 2: ["s_labor"], 3: ["s_inn"],
                             4: ["s_beg"], 5: ["s_plague"], 6: ["s_cold", "s_cure"] };
 
+/* '밀착 장면' — 앞 장면의 유도(예고) 카드가 곧바로 이 장면을 약속하는 경우.
+   3(성 바오로 대성당): 앞 장면에서 "그녀를 따라간다" → 인트로가 "그녀가 …이끈다"로 직결.
+   4(귀족의 결혼식): 인트로에서 그녀가 "오늘 밤 결혼식에 가자"고 곧장 데려간다.
+   이 장면들 앞에는 막간(생존·랜덤)을 끼우지 않고 약속된 장면이 즉시 이어지게 한다. */
+const TIGHT_ENTRY = new Set([3, 4]);
+
+/* '느슨한 이음새'에서 막간이 뜰 때 앞에 붙일 시간경과 브리지(다음 장면 index 기준) */
+const BRIDGE_BY_SCENE = {
+  1: "장이 파하고 어스름이 내린다. 빈속을 채울 곳부터 찾는다.",
+  2: "며칠이 흐른다. 주머니가 가벼워, 몸으로라도 벌어야 한다.",
+  5: "결혼식의 소란을 뒤로하고, 며칠이 흐른다.",
+  6: "다시 며칠이 흐른다. 밤공기가 점점 차가워진다."
+};
+
 /* 건강 감소 + 사인 기록 */
 function harm(n, cause) {
   if (n <= 0 || S.health <= 0) return;   // 이미 쓰러졌으면 사인(死因)을 덮어쓰지 않는다
@@ -942,7 +956,8 @@ const S = { scene: 0, cardId: null, step: 0, suspicion: 0, trust: 0, coins: 8,
             health: 3, healthMax: 3, day: 1, dayMax: 30,
             hunger: 0, infected: false, plagueDays: 0, lastHarm: null,
             locked: false, lastResult: null, records: [], flags: new Set(),
-            queue: [], current: null, showingRandom: false, usedRandom: new Set() };
+            queue: [], current: null, showingRandom: false, usedRandom: new Set(),
+            pendingSurvival: [], interludeMode: false };
 
 const $ = id => document.getElementById(id);
 const el = {
@@ -1531,6 +1546,7 @@ function screenIntro() {
   S.hunger = 0; S.infected = false; S.plagueDays = 0; S.lastHarm = null;
   S.locked = false; S.lastResult = null; S.records = []; S.flags = new Set();
   S.queue = []; S.current = null; S.showingRandom = false; S.usedRandom = new Set();
+  S.pendingSurvival = []; S.interludeMode = false;
   drawGauge();
   el.panel.innerHTML =
     '<div class="title-eye">' + TITLE_EYE + '</div>' +
@@ -1589,6 +1605,49 @@ function artHTML(sc) {
     '<div class="art-cap">' + sc.art.caption + '</div>';
 }
 
+/* ── 장면 이음새 처리 ──
+   스토리가 끝난 뒤, 다음 장면 인트로 '앞'에 막간(생존·랜덤)을 배치한다.
+   · 밀착 장면(TIGHT_ENTRY)에는 막간을 넣지 않고 약속된 장면을 즉시 잇는다.
+     넣지 못한 생존 카드는 pendingSurvival에 미뤄 두었다가 다음 느슨한 이음새에서 몰아 보여 준다.
+   · 느슨한 이음새에서는 [미뤄 둔 생존 + 이번 생존 + 랜덤 1장]을 시간경과 브리지와 함께 보여 준 뒤 인트로로.
+   day/health/돈 경제와 랜덤 재사용 금지·피날레 억제는 그대로 유지된다. */
+function startSceneTransition() {
+  const entering = S.scene;
+  const sids = (entering !== LAST) ? (SURVIVAL_BY_SCENE[entering] || []) : [];
+
+  /* 밀착 장면: 막간 없이 곧바로 인트로. 이번 생존 카드는 다음 느슨한 이음새로 미룬다. */
+  if (entering !== LAST && TIGHT_ENTRY.has(entering)) {
+    for (const id of sids) if (SURVIVAL[id]) S.pendingSurvival.push(SURVIVAL[id]);
+    S.queue = [];
+    S.interludeMode = false;
+    screenNarration();
+    return;
+  }
+
+  /* 느슨한 이음새(또는 피날레): 막간 큐 구성 */
+  let q = [];
+  if (entering !== LAST) {
+    for (const c of S.pendingSurvival) q.push(c);   // 미뤄 둔 생존 카드 먼저
+    S.pendingSurvival = [];
+    for (const id of sids) if (SURVIVAL[id]) q.push(SURVIVAL[id]);
+    q = q.concat(drawRandom(1));                     // 거리 랜덤은 이음새에서만 1장
+  }
+
+  if (!q.length) { S.queue = []; S.interludeMode = false; screenNarration(); return; }
+
+  /* 첫 막간 카드 앞에 시간경과 브리지를 붙인다 (원본 카드 객체는 훼손하지 않도록 얕은 복제) */
+  const bridge = BRIDGE_BY_SCENE[entering];
+  if (bridge) {
+    const first = Object.assign({}, q[0]);
+    first.text = bridge + "\n\n" + first.text;
+    q[0] = first;
+  }
+  S.queue = q;
+  S.step = 0;
+  S.interludeMode = true;   // 막간이 끝나면 예약된 인트로로 이어진다
+  screenCard();
+}
+
 function screenNarration() {
   const sc = SCENARIO.scenes[S.scene];
   /* 장면 이동 = 며칠이 흐른다 (첫 장면 제외). 굶주림·역병이 몸을 깎을 수 있다 */
@@ -1608,15 +1667,12 @@ function screenNarration() {
   refade(el.panel);
   show("panel");
   $("go").onclick = () => {
+    /* 인트로 직후에는 곧바로 스토리 카드로. 생존·랜덤은 인트로 앞(이음새)에서 이미 처리됨.
+       → 인트로가 약속한 상황이 끊기지 않고 그대로 이어진다. */
     S.cardId = sc.cards[0].id;
     S.step = 0;
     S.queue = [];
-    /* 마지막 고비(피날레)에는 랜덤·생존 카드를 억제, 서사 카드만 */
-    if (S.scene !== LAST) {
-      const sids = SURVIVAL_BY_SCENE[S.scene] || [];
-      for (const id of sids) if (SURVIVAL[id]) S.queue.push(SURVIVAL[id]);
-      S.queue = S.queue.concat(drawRandom(Math.random() < 0.45 ? 2 : 1));
-    }
+    S.interludeMode = false;
     screenCard();
   };
 }
@@ -1800,6 +1856,9 @@ function choose(dir) {
     /* 무작위/생존 카드였다면 큐에서 빼고 이어서 진행 */
     if (S.showingRandom) {
       S.queue.shift();
+      if (S.queue.length) { screenCard(); return; }
+      /* 막간(생존·랜덤)이 끝났다 → 예약된 다음 장면 인트로로 */
+      if (S.interludeMode) { S.interludeMode = false; screenNarration(); return; }
       screenCard();
       return;
     }
@@ -1813,16 +1872,15 @@ function choose(dir) {
     let next = ch.next || nextSequential(sc, S.cardId);
     if (typeof next === "object") next = S.flags.has(next.flag) ? next.then : next.else;
     if (next !== "END") {
+      /* 스토리 카드 사이에는 더 이상 랜덤을 끼우지 않는다 → 장면 한가운데서 서사가 끊기지 않음 */
       S.cardId = next;
-      /* 피날레에서는 랜덤 억제(서사 카드만) */
-      if (S.scene !== LAST && Math.random() < 0.28) S.queue = S.queue.concat(drawRandom(1));
       screenCard();
     } else {
       S.records.push(sc.record);
       if (S.scene + 1 < SCENARIO.scenes.length) {
         S.scene++;
         try { SFX.transition(); } catch (e) {}
-        screenNarration();
+        startSceneTransition();   // 이음새: (필요시) 막간 → 다음 장면 인트로
       } else {
         screenEnding(resolveEnding("tryTogether"));
       }
