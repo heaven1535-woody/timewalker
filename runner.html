@@ -4,73 +4,72 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
-<meta name="theme-color" content="#0c1424">
+<meta name="theme-color" content="#0b1220">
 <title>돌격! 게이트 러너</title>
 <style>
   :root{ color-scheme: dark; }
   *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; }
-  html,body{ height:100%; overflow:hidden; background:#0a1120; }
+  html,body{ height:100%; overflow:hidden; background:#08101d; }
   body{
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple Color Emoji","Segoe UI Emoji",sans-serif;
     color:#fff; display:flex; align-items:center; justify-content:center; touch-action:none;
   }
   #frame{
     position:relative; width:100vw; height:100vh; height:100dvh;
-    max-width:520px; margin:0 auto; overflow:hidden; background:#0c1424;
+    max-width:520px; margin:0 auto; overflow:hidden; background:#0b1220;
   }
   @supports (height:100dvh){ #frame{ height:100dvh; } }
-  #frame.shake{ animation:shake .22s ease; }
-  @keyframes shake{ 25%{transform:translate(-3px,2px)} 50%{transform:translate(4px,-2px)} 75%{transform:translate(-2px,-1px)} }
   canvas{ display:block; width:100%; height:100%; touch-action:none; }
 
-  /* HUD */
-  #hud{ position:absolute; left:0; right:0; top:0; padding:max(10px,env(safe-area-inset-top)) 14px 0; pointer-events:none; }
+  #hud{ position:absolute; left:0; right:0; top:0; padding:max(10px,env(safe-area-inset-top)) 14px 0; pointer-events:none; z-index:5; }
   .hrow{ display:flex; align-items:center; gap:10px; }
   .troops{
     display:flex; align-items:center; gap:6px;
-    background:rgba(0,0,0,.35); border:1px solid rgba(255,255,255,.12);
-    padding:6px 12px; border-radius:14px; font-weight:800;
+    background:rgba(0,0,0,.42); border:1px solid rgba(120,180,255,.35);
+    padding:6px 13px; border-radius:14px; font-weight:800;
+    box-shadow:0 2px 10px rgba(0,0,0,.4);
   }
   .troops .ico{ font-size:18px; }
-  .troops #count{ font-size:22px; color:#8ff0a4; min-width:34px; text-align:left; }
-  .troops #count.flash{ animation:flash .3s ease; }
-  @keyframes flash{ 0%{transform:scale(1)} 45%{transform:scale(1.4); color:#fff} 100%{transform:scale(1)} }
+  .troops #count{ font-size:23px; color:#7fc4ff; min-width:38px; text-align:left; text-shadow:0 0 10px rgba(90,170,255,.5); }
+  .troops #count.flash{ animation:flash .28s ease; }
+  @keyframes flash{ 0%{transform:scale(1)} 45%{transform:scale(1.45); color:#fff} 100%{transform:scale(1)} }
   #muteWrap{ margin-left:auto; pointer-events:auto; }
   #mute{
-    width:38px; height:38px; border-radius:11px; border:1px solid rgba(255,255,255,.12);
-    background:rgba(0,0,0,.35); color:#fff; font-size:17px; cursor:pointer;
+    width:38px; height:38px; border-radius:11px; border:1px solid rgba(255,255,255,.14);
+    background:rgba(0,0,0,.42); color:#fff; font-size:17px; cursor:pointer;
     display:flex; align-items:center; justify-content:center;
   }
   #mute:active{ transform:scale(.9); }
-  .barouter{ margin-top:9px; height:10px; border-radius:8px; background:rgba(255,255,255,.10); overflow:hidden; position:relative; }
-  #prog{ position:absolute; left:0; top:0; bottom:0; width:0%; background:linear-gradient(90deg,#3ee6a0,#ffd54a,#ff7a59); border-radius:8px; transition:width .12s linear; }
-  .flag{ position:absolute; right:2px; top:-4px; font-size:13px; }
+  .barwrap{ margin-top:9px; display:flex; align-items:center; gap:7px; }
+  .barouter{ flex:1; height:11px; border-radius:8px; background:rgba(255,255,255,.10); overflow:hidden; position:relative; box-shadow:inset 0 1px 3px rgba(0,0,0,.5); }
+  #prog{ position:absolute; left:0; top:0; bottom:0; width:0%; background:linear-gradient(90deg,#3ee6a0,#ffd54a,#ff7a59); border-radius:8px; transition:width .1s linear; }
+  .flag{ font-size:15px; filter:drop-shadow(0 0 5px rgba(255,180,60,.5)); }
 
-  /* Start / End overlays */
   .overlay{
     position:absolute; inset:0; z-index:20; display:none;
     flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:26px;
-    background:radial-gradient(120% 100% at 50% 0%, rgba(20,40,80,.92), rgba(6,12,26,.96));
+    background:radial-gradient(120% 100% at 50% 0%, rgba(18,38,74,.93), rgba(5,10,22,.97));
   }
-  .overlay.show{ display:flex; animation:fade .35s ease; }
+  .overlay.show{ display:flex; animation:fade .3s ease; }
   @keyframes fade{ from{opacity:0} to{opacity:1} }
-  .overlay .emo{ font-size:clamp(56px,18vw,96px); }
-  .overlay h1{ font-size:clamp(26px,8vw,40px); margin:6px 0; }
+  .overlay .emo{ font-size:clamp(56px,18vw,100px); filter:drop-shadow(0 6px 20px rgba(0,0,0,.5)); }
+  .win .emo{ animation:pop .6s ease; } @keyframes pop{ 0%{transform:scale(.3)} 60%{transform:scale(1.2)} 100%{transform:scale(1)} }
+  .overlay h1{ font-size:clamp(27px,8.5vw,42px); margin:8px 0 2px; }
   .win h1{ background:linear-gradient(90deg,#ffd54a,#8ff0a4); -webkit-background-clip:text; background-clip:text; color:transparent; }
   .lose h1{ color:#ff6b6b; }
-  .overlay p{ color:#cfe0ff; font-size:15px; line-height:1.5; max-width:300px; margin:4px 0 4px; }
+  .overlay p{ color:#cfe0ff; font-size:15px; line-height:1.55; max-width:310px; margin:4px 0; }
   .overlay .fake{ opacity:.5; text-decoration:line-through; }
-  .overlay .fscore{ margin:8px 0 16px; font-size:17px; }
-  .overlay .fscore b{ color:#ffe17a; font-size:26px; }
+  .overlay .fscore{ margin:8px 0 16px; font-size:18px; }
+  .overlay .fscore b{ color:#ffe17a; font-size:30px; }
   .btn{
-    border:none; cursor:pointer; font-size:19px; font-weight:800; color:#0a1a12;
-    padding:14px 30px; border-radius:15px; margin-top:6px;
-    background:linear-gradient(90deg,#8ff0a4,#3ee6a0); box-shadow:0 8px 22px rgba(60,220,150,.4);
+    border:none; cursor:pointer; font-size:19px; font-weight:800; color:#08210f;
+    padding:14px 32px; border-radius:15px; margin-top:6px;
+    background:linear-gradient(90deg,#8ff0a4,#3ee6a0); box-shadow:0 8px 24px rgba(60,220,150,.45);
     transition:transform .1s;
   }
-  .lose .btn{ color:#2a0f0f; background:linear-gradient(90deg,#ffb03c,#ff7a59); box-shadow:0 8px 22px rgba(255,140,80,.4); }
+  .lose .btn{ color:#2a0f0f; background:linear-gradient(90deg,#ffb03c,#ff7a59); box-shadow:0 8px 24px rgba(255,140,80,.45); }
   .btn:active{ transform:scale(.94); }
-  .hint{ position:absolute; bottom:max(14px,env(safe-area-inset-bottom)); left:0; right:0; text-align:center; font-size:12px; color:#aab; opacity:.6; pointer-events:none; }
+  .hintbar{ position:absolute; bottom:max(14px,env(safe-area-inset-bottom)); left:0; right:0; text-align:center; font-size:12.5px; color:#bcd; opacity:.7; pointer-events:none; z-index:5; text-shadow:0 1px 4px rgba(0,0,0,.7); }
 </style>
 </head>
 <body>
@@ -81,25 +80,23 @@
       <div class="troops"><span class="ico">🪖</span><span id="count">0</span><span style="opacity:.5;font-size:13px">명</span></div>
       <div id="muteWrap"><button id="mute" aria-label="소리">🔊</button></div>
     </div>
-    <div class="barouter"><div id="prog"></div><span class="flag">🏰</span></div>
+    <div class="barwrap"><div class="barouter"><div id="prog"></div></div><span class="flag">🏰</span></div>
   </div>
-  <div class="hint" id="hint">← 좌우로 끌어서 병력을 움직이세요 →</div>
+  <div class="hintbar" id="hint">← 좌우로 끌어서 병력을 이동 →</div>
 
   <div class="overlay" id="startOv">
     <div class="emo">🪖⚔️</div>
     <h1>돌격! 게이트 러너</h1>
-    <p>좌우로 움직여 <b>좋은 게이트</b>로 병력을 불리고<br>적을 쓸어버린 뒤 <b>🏰 성문</b>을 부수세요!</p>
-    <button class="btn" id="startBtn">▶ 시작</button>
+    <p>좌우로 움직여 <b>초록 게이트</b>로 병력을 불리고<br>적군을 쓸어버린 뒤 <b>🏰 성문</b>을 부수세요!</p>
+    <button class="btn" id="startBtn">▶ 출격</button>
   </div>
-
   <div class="overlay win" id="winOv">
     <div class="emo">🏆</div>
-    <h1>성문 함락! 승리!</h1>
+    <h1>성문 함락! 대승!</h1>
     <div class="fscore">최종 병력 <b id="winCount">0</b>명</div>
-    <p><span class="fake">지금 설치하고 무적 부대 받기!</span><br>…는 농담이고 🔁 한 판 더 하시죠.</p>
+    <p><span class="fake">지금 설치하고 무적 군단 받기!</span><br>…는 농담이고 🔁 한 판 더 하시죠.</p>
     <button class="btn" id="winBtn">🔁 다시하기</button>
   </div>
-
   <div class="overlay lose" id="loseOv">
     <div class="emo">💀</div>
     <h1>전멸…</h1>
@@ -112,429 +109,525 @@
 (function(){
   "use strict";
 
-  var cv = document.getElementById("cv");
-  var ctx = cv.getContext("2d");
-  var frameEl = document.getElementById("frame");
-  var countEl = document.getElementById("count");
-  var progEl = document.getElementById("prog");
-  var hintEl = document.getElementById("hint");
-  var muteBtn = document.getElementById("mute");
+  var cv=document.getElementById("cv"), ctx=cv.getContext("2d");
+  var frameEl=document.getElementById("frame");
+  var countEl=document.getElementById("count"), progEl=document.getElementById("prog");
+  var hintEl=document.getElementById("hint"), muteBtn=document.getElementById("mute");
 
-  var W=360, H=640, DPR=1;
+  var W=360,H=640,DPR=1;
   function resize(){
-    var r = frameEl.getBoundingClientRect();
-    W = Math.max(200, r.width); H = Math.max(320, r.height);
-    DPR = Math.min(window.devicePixelRatio||1, 2.5);
-    cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
+    var r=frameEl.getBoundingClientRect();
+    W=Math.max(220,r.width); H=Math.max(360,r.height);
+    DPR=Math.min(window.devicePixelRatio||1,2.5);
+    cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
     cv.style.width=W+"px"; cv.style.height=H+"px";
     ctx.setTransform(DPR,0,0,DPR,0,0);
+    roadBounds();
   }
-  window.addEventListener("resize", resize);
+  window.addEventListener("resize",resize);
 
-  // ---- Audio ----
+  /* ---------- Audio ---------- */
   var audio={ctx:null,muted:false,ok:false};
   function initAudio(){ if(audio.ctx||audio.muted) return; try{ var AC=window.AudioContext||window.webkitAudioContext; if(!AC) return; audio.ctx=new AC(); audio.ok=true; }catch(e){ audio.ok=false; } }
   function unlock(){ initAudio(); try{ if(audio.ctx&&audio.ctx.state==="suspended") audio.ctx.resume(); }catch(e){} }
   function tone(freq,dur,type,vol,slideTo){
     if(!audio.ok||audio.muted||!audio.ctx) return;
     try{
-      var t=audio.ctx.currentTime, o=audio.ctx.createOscillator(), g=audio.ctx.createGain();
+      var t=audio.ctx.currentTime,o=audio.ctx.createOscillator(),g=audio.ctx.createGain();
       o.type=type||"square"; o.frequency.setValueAtTime(freq,t);
-      if(slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(50,slideTo),t+dur);
-      g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol||0.08,t+0.008);
+      if(slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(40,slideTo),t+dur);
+      g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol||0.08,t+0.006);
       g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
       o.connect(g); g.connect(audio.ctx.destination); o.start(t); o.stop(t+dur+0.02);
     }catch(e){}
   }
+  function noise(dur,vol){
+    if(!audio.ok||audio.muted||!audio.ctx) return;
+    try{
+      var sr=audio.ctx.sampleRate, n=Math.floor(sr*dur), buf=audio.ctx.createBuffer(1,n,sr), d=buf.getChannelData(0);
+      for(var i=0;i<n;i++){ d[i]=(Math.random()*2-1)*(1-i/n); }
+      var s=audio.ctx.createBufferSource(); s.buffer=buf;
+      var g=audio.ctx.createGain(); g.gain.setValueAtTime(vol||0.12,audio.ctx.currentTime);
+      var f=audio.ctx.createBiquadFilter(); f.type="lowpass"; f.frequency.value=1200;
+      s.connect(f); f.connect(g); g.connect(audio.ctx.destination); s.start();
+    }catch(e){}
+  }
   var lastShot=0;
-  function sfxShot(){ var n=performance.now(); if(n-lastShot<40) return; lastShot=n; tone(680,0.05,"square",0.03,420); }
-  function sfxGood(){ tone(440,0.12,"triangle",0.12,880); }
-  function sfxBad(){ tone(300,0.2,"sawtooth",0.12,90); }
-  function sfxHit(){ tone(180,0.08,"square",0.08,90); }
-  function sfxWin(){ [523,659,784,1046,1318].forEach(function(f,i){ setTimeout(function(){ tone(f,0.22,"triangle",0.14,f*1.02); },i*120); }); }
-  function sfxLose(){ [400,300,200,120].forEach(function(f,i){ setTimeout(function(){ tone(f,0.25,"sawtooth",0.12,f*0.6); },i*130); }); }
-  muteBtn.addEventListener("click", function(){ audio.muted=!audio.muted; muteBtn.textContent=audio.muted?"🔇":"🔊"; if(!audio.muted) unlock(); });
+  function sfxShot(){ var n=performance.now(); if(n-lastShot<45) return; lastShot=n; tone(720,0.04,"square",0.025,480); }
+  function sfxHit(){ tone(240,0.05,"square",0.05,120); }
+  function sfxKill(){ noise(0.16,0.1); tone(160,0.12,"sawtooth",0.06,60); }
+  function sfxEnemyShot(){ tone(300,0.05,"sawtooth",0.02,180); }
+  function sfxGood(){ tone(520,0.12,"triangle",0.11,1040); }
+  function sfxBad(){ tone(280,0.22,"sawtooth",0.12,80); }
+  function sfxBossHit(){ tone(120,0.07,"square",0.07,70); noise(0.05,0.05); }
+  function sfxWin(){ [523,659,784,1046,1318,1568].forEach(function(f,i){ setTimeout(function(){ tone(f,0.24,"triangle",0.14,f*1.01); },i*110); }); noise(0.5,0.14); }
+  function sfxLose(){ [420,320,220,130].forEach(function(f,i){ setTimeout(function(){ tone(f,0.26,"sawtooth",0.12,f*0.6); },i*130); }); }
+  function sfxBoom(){ noise(0.3,0.16); tone(90,0.3,"sawtooth",0.1,40); }
+  muteBtn.addEventListener("click",function(){ audio.muted=!audio.muted; muteBtn.textContent=audio.muted?"🔇":"🔊"; if(!audio.muted) unlock(); });
 
-  // ---- Game state ----
-  var state="start"; // start, play, win, lose
-  var squad, bullets, gates, enemies, boss, effects, floaters;
+  /* ---------- State ---------- */
+  var state="start";
+  var squad, pBullets, eBullets, enemies, barricades, gates, boss, parts, floats;
   var traveled, speed, roadL, roadR, squadY, fireCd, timePrev, running=false;
-  var TRACK_END, started=false;
+  var TRACK_END, shakeMag=0, hitstop=0, gameTime=0;
 
-  function roadBounds(){ roadL = W*0.13; roadR = W*0.87; }
+  function roadBounds(){ roadL=W*0.11; roadR=W*0.89; }
+  function roadMid(){ return (roadL+roadR)/2; }
+  function screenY(d){ return squadY-(d-traveled); }
+
+  /* caps */
+  var MAX_PART=280, MAX_PB=220, MAX_EB=140;
 
   function buildLevel(){
     roadBounds();
-    squad = { x:(roadL+roadR)/2, count:6, targetX:(roadL+roadR)/2 };
-    bullets=[]; enemies=[]; effects=[]; floaters=[]; gates=[];
-    traveled=0; speed=150; fireCd=0; squadY=H*0.80;
+    squad={ x:roadMid(), targetX:roadMid(), count:8 };
+    pBullets=[]; eBullets=[]; enemies=[]; barricades=[]; gates=[]; parts=[]; floats=[];
+    traveled=0; speed=155; fireCd=0; squadY=H*0.82; gameTime=0; shakeMag=0; hitstop=0;
 
-    // 게이트 정의: dist(진행거리), 왼쪽/오른쪽 연산
-    // op: {t:'mul'|'add'|'sub'|'div', v:number}
-    var pairs=[
-      { d:520,  L:{t:'add',v:8},  R:{t:'mul',v:2} },
-      { d:1150, L:{t:'mul',v:3},  R:{t:'sub',v:5} },
-      { d:1850, L:{t:'div',v:2},  R:{t:'add',v:20} },
-      { d:2600, L:{t:'mul',v:2},  R:{t:'add',v:12} },
-      { d:3350, L:{t:'add',v:15}, R:{t:'mul',v:2} }
-    ];
-    pairs.forEach(function(p){
-      gates.push({ d:p.d, ops:[p.L,p.R], consumed:false });
-    });
-    // 적 바리케이드: dist, hp
-    var barr=[
-      { d:850,  hp:14 },
-      { d:1500, hp:30 },
-      { d:2200, hp:45 },
-      { d:3000, hp:70 }
-    ];
-    barr.forEach(function(b){ enemies.push({ d:b.d, hp:b.hp, maxhp:b.hp, x:(roadL+roadR)/2, w:(roadR-roadL)*0.62, dead:false, contacted:false }); });
+    function gate(d,L,R){ gates.push({d:d,ops:[L,R],consumed:false,flash:0}); }
+    function barr(d,hp){ barricades.push({d:d,x:roadMid(),w:(roadR-roadL)*0.66,hp:hp,maxhp:hp,alive:true,flash:0,kb:0}); }
+    // 적 무리: 지정 d 근처에 n명 배치
+    function wave(d,n,hp){
+      for(var i=0;i<n;i++){
+        var col=i%4, row=Math.floor(i/4);
+        var gx=roadL+(roadR-roadL)*(0.18+0.21*col)+(Math.random()*10-5);
+        enemies.push({ d:d+row*46+Math.random()*14, x:gx, hp:hp, maxhp:hp, alive:true, flash:0, kb:0, fireCd:0.6+Math.random()*1.2, bob:Math.random()*6 });
+      }
+    }
 
-    boss = { d:3900, hp:130, maxhp:130, alive:true, arrived:false, drainCd:0 };
-    TRACK_END = boss.d;
+    gate(560,{t:'add',v:10},{t:'mul',v:2});
+    wave(760,4,3);
+    barr(1000,26);
+    gate(1250,{t:'mul',v:3},{t:'sub',v:6});
+    wave(1480,7,4);
+    wave(1560,3,3);
+    barr(1820,46);
+    gate(2080,{t:'div',v:2},{t:'add',v:26});
+    wave(2320,9,4);
+    gate(2650,{t:'mul',v:2},{t:'add',v:16});
+    barr(2900,66);
+    wave(3150,8,5);
+    gate(3480,{t:'add',v:22},{t:'mul',v:2});
+    wave(3760,12,5);   // 대규모 웨이브
+    wave(3860,6,5);
+    boss={ d:4300, hp:240, maxhp:240, alive:true, arrived:false, drainCd:0, fireCd:0.4, flash:0 };
+    TRACK_END=boss.d;
     updateHud();
   }
 
-  function opText(op){
-    var s = op.t==='mul'?'×':op.t==='add'?'+':op.t==='sub'?'−':'÷';
-    return s+op.v;
-  }
+  function opText(op){ var s=op.t==='mul'?'×':op.t==='add'?'+':op.t==='sub'?'−':'÷'; return s+op.v; }
+  function opGood(op){ return op.t==='mul'||op.t==='add'; }
   function applyOp(op){
-    var c=squad.count, nc=c;
-    if(op.t==='mul') nc=c*op.v;
-    else if(op.t==='add') nc=c+op.v;
-    else if(op.t==='sub') nc=c-op.v;
-    else if(op.t==='div') nc=Math.floor(c/op.v);
-    nc=Math.max(0,Math.floor(nc));
-    var good = nc>=c;
-    squad.count=nc;
-    return good;
+    var c=squad.count,nc=c;
+    if(op.t==='mul')nc=c*op.v; else if(op.t==='add')nc=c+op.v; else if(op.t==='sub')nc=c-op.v; else nc=Math.floor(c/op.v);
+    nc=Math.max(0,Math.floor(nc)); var good=nc>=c; squad.count=nc; return good;
   }
-
-  // 좌표 변환: 트랙거리 d → 화면 y
-  function screenY(d){ return squadY - (d - traveled); }
 
   function updateHud(){
-    countEl.textContent = squad.count;
+    countEl.textContent=squad.count;
     countEl.classList.remove("flash"); void countEl.offsetWidth; countEl.classList.add("flash");
-    var pct = Math.min(100, traveled/TRACK_END*100);
-    progEl.style.width = pct.toFixed(1)+"%";
+    progEl.style.width=Math.min(100,traveled/TRACK_END*100).toFixed(1)+"%";
   }
 
-  function addFloater(x,y,text,color){ floaters.push({x:x,y:y,text:text,color:color,life:0,max:900}); }
-  function boom(x,y,color,n){ for(var i=0;i<(n||10);i++){ var a=Math.random()*Math.PI*2,sp=40+Math.random()*120; effects.push({x:x,y:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:0,max:400+Math.random()*300,color:color,r:2+Math.random()*3}); } }
-  function shakeIt(){ frameEl.classList.remove("shake"); void frameEl.offsetWidth; frameEl.classList.add("shake"); }
+  /* effects */
+  function spark(x,y,color,n,spd){
+    for(var i=0;i<(n||6);i++){
+      if(parts.length>=MAX_PART) break;
+      var a=Math.random()*Math.PI*2, s=(spd||90)*(0.3+Math.random());
+      parts.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0,max:260+Math.random()*220,color:color,r:1.5+Math.random()*2.5,g:1});
+    }
+  }
+  function smoke(x,y,n){
+    for(var i=0;i<(n||6);i++){
+      if(parts.length>=MAX_PART) break;
+      var a=Math.random()*Math.PI*2, s=20+Math.random()*40;
+      parts.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-20,life:0,max:420+Math.random()*300,color:"rgba(120,120,130,",r:4+Math.random()*6,smoke:1,g:0});
+    }
+  }
+  function dmgNum(x,y,val,color){ floats.push({x:x,y:y,text:(val>0?"-":"")+Math.abs(val),color:color||"#fff",life:0,max:700,vy:-46}); }
+  function popText(x,y,text,color){ floats.push({x:x,y:y,text:text,color:color,life:0,max:900,vy:-40,big:1}); }
+  function shake(m){ shakeMag=Math.min(16,Math.max(shakeMag,m)); }
+  function stop(t){ hitstop=Math.max(hitstop,t); }
 
-  // ---- Update ----
+  /* ---------- Update ---------- */
   function update(dt){
     if(state!=="play") return;
+    gameTime+=dt;
+    if(hitstop>0){ hitstop-=dt; if(hitstop>0){ return; } }
 
-    // 전진 (보스 도착 전까지)
-    if(!boss.arrived){
-      traveled += speed*dt;
-      if(traveled >= boss.d){ traveled=boss.d; boss.arrived=true; }
-    }
+    if(!boss.arrived){ traveled+=speed*dt; if(traveled>=boss.d){ traveled=boss.d; boss.arrived=true; } }
 
-    // 좌우 이동 (부드럽게 목표 추적)
-    squad.x += (squad.targetX - squad.x) * Math.min(1, dt*14);
-    squad.x = Math.max(roadL+8, Math.min(roadR-8, squad.x));
+    squad.x+=(squad.targetX-squad.x)*Math.min(1,dt*16);
+    squad.x=Math.max(roadL+10,Math.min(roadR-10,squad.x));
+    progEl.style.width=Math.min(100,traveled/TRACK_END*100).toFixed(1)+"%";
 
-    // 진행바
-    var pct = Math.min(100, traveled/TRACK_END*100);
-    progEl.style.width = pct.toFixed(1)+"%";
-
-    // 사격
-    fireCd -= dt;
+    /* fire */
+    fireCd-=dt;
     if(fireCd<=0 && squad.count>0){
-      fireCd = 0.11;
-      var nb = Math.max(1, Math.min(7, 1+Math.floor(squad.count/6)));
-      var spread = Math.min((roadR-roadL)*0.5, 12+squad.count*0.6);
+      fireCd=0.10;
+      var nb=Math.max(1,Math.min(9,1+Math.floor(squad.count/5)));
+      var spread=Math.min((roadR-roadL)*0.5,10+squad.count*0.55);
       for(var i=0;i<nb;i++){
-        var off = nb===1?0:(-spread/2 + spread*(i/(nb-1)));
-        bullets.push({ x:squad.x+off, y:squadY-16, vy:-620 });
+        if(pBullets.length>=MAX_PB) break;
+        var off=nb===1?0:(-spread/2+spread*(i/(nb-1)));
+        pBullets.push({x:squad.x+off,y:squadY-18,vy:-660});
       }
       sfxShot();
-      effects.push({x:squad.x,y:squadY-14,vx:0,vy:0,life:0,max:70,color:"#ffe17a",r:6,flash:true});
+      parts.push({x:squad.x,y:squadY-16,vx:0,vy:0,life:0,max:60,color:"#fff2a8",r:7,g:1,flash:1});
     }
 
-    // 총알 이동
-    for(var b=bullets.length-1;b>=0;b--){
-      var bl=bullets[b]; bl.y += bl.vy*dt;
-      if(bl.y < -20){ bullets.splice(b,1); }
+    /* player bullets */
+    for(var b=pBullets.length-1;b>=0;b--){ var bl=pBullets[b]; bl.y+=bl.vy*dt; if(bl.y<-24) pBullets.splice(b,1); }
+    /* enemy bullets */
+    for(var eb=eBullets.length-1;eb>=0;eb--){
+      var ebl=eBullets[eb]; ebl.y+=ebl.vy*dt; ebl.x+=(ebl.vx||0)*dt;
+      if(ebl.y>H+24){ eBullets.splice(eb,1); continue; }
+      if(ebl.y>=squadY-14 && ebl.y<=squadY+20 && Math.abs(ebl.x-squad.x)<squadHalf()){
+        eBullets.splice(eb,1);
+        squad.count=Math.max(0,squad.count-1);
+        spark(ebl.x,squadY-6,"#9fd0ff",6,110); shake(3); updateHud();
+        if(squad.count<=0){ return gameOver("적의 반격에 부대가 무너졌습니다."); }
+      }
     }
 
-    // 게이트 통과 판정
+    /* gates */
     for(var g=0;g<gates.length;g++){
-      var gt=gates[g];
-      if(!gt.consumed && traveled >= gt.d){
+      var gt=gates[g]; if(gt.consumed) continue;
+      if(traveled>=gt.d){
         gt.consumed=true;
-        var pickRight = squad.x > (roadL+roadR)/2;
-        var op = gt.ops[pickRight?1:0];
-        var good = applyOp(op);
-        var sy = squadY;
-        addFloater(squad.x, sy-30, (good?"":"") + opText(op), good?"#8ff0a4":"#ff6b6b");
-        boom(squad.x, sy, good?"#8ff0a4":"#ff6b6b", 14);
-        good?sfxGood():sfxBad();
-        shakeIt();
-        updateHud();
+        var op=gt.ops[squad.x>roadMid()?1:0];
+        var good=applyOp(op);
+        popText(squad.x,squadY-34,opText(op),good?"#8ff0a4":"#ff6b6b");
+        spark(squad.x,squadY-10,good?"#8ff0a4":"#ff6b6b",16,140);
+        good?sfxGood():sfxBad(); shake(good?4:7); updateHud();
         if(squad.count<=0){ return gameOver("게이트 함정에 병력을 잃었습니다."); }
       }
     }
 
-    // 적 처리
-    for(var e=0;e<enemies.length;e++){
-      var en=enemies[e];
-      if(en.dead) continue;
-      var ey = screenY(en.d);
-      // 총알 충돌 (적이 화면에 들어와 있을 때)
-      if(ey > -60 && ey < H+60){
-        for(var bi=bullets.length-1;bi>=0;bi--){
-          var bb=bullets[bi];
-          if(bb.y <= ey+18 && bb.y >= ey-18 && bb.x > en.x-en.w/2 && bb.x < en.x+en.w/2){
-            en.hp -= 1; bullets.splice(bi,1);
-            effects.push({x:bb.x,y:ey,vx:0,vy:0,life:0,max:60,color:"#fff",r:3,flash:true});
-            if(en.hp<=0){ en.dead=true; boom(en.x,ey,"#ff8c5a",18); sfxHit(); break; }
+    /* barricades */
+    for(var k=0;k<barricades.length;k++){
+      var br=barricades[k]; if(!br.alive) continue;
+      var by=screenY(br.d);
+      if(br.flash>0) br.flash-=dt; if(br.kb>0) br.kb-=dt*60;
+      if(by>-70 && by<H+70){
+        for(var bi=pBullets.length-1;bi>=0;bi--){
+          var pb=pBullets[bi];
+          if(pb.y<=by+20 && pb.y>=by-20 && pb.x>br.x-br.w/2 && pb.x<br.x+br.w/2){
+            br.hp-=1; pBullets.splice(bi,1); br.flash=0.06; br.kb=3;
+            spark(pb.x,by+8,"#ffd27a",3,80);
+            if(br.hp<=0){ br.alive=false; smoke(br.x,by,14); spark(br.x,by,"#ff9a5a",22,170); sfxKill(); shake(6); stop(0.03); break; }
           }
         }
       }
-      // 접촉 판정 (적이 부대 라인 도달)
-      if(!en.dead && !en.contacted && traveled >= en.d){
-        en.contacted=true; en.dead=true;
-        if(en.hp>0){
-          var loss=en.hp;
-          squad.count=Math.max(0,squad.count-loss);
-          addFloater(squad.x, squadY-26, "-"+loss, "#ff6b6b");
-          boom(squad.x, squadY, "#ff6b6b", 16); sfxHit(); shakeIt(); updateHud();
-          if(squad.count<=0){ return gameOver("바리케이드를 넘지 못했습니다."); }
-        }
+      if(br.alive && traveled>=br.d){
+        br.alive=false;
+        var loss=br.hp; squad.count=Math.max(0,squad.count-loss);
+        dmgNum(squad.x,squadY-24,loss,"#ff6b6b"); spark(squad.x,squadY,"#ff6b6b",16,150);
+        smoke(squad.x,squadY-10,8); sfxHit(); shake(8); stop(0.04); updateHud();
+        if(squad.count<=0){ return gameOver("바리케이드를 넘지 못했습니다."); }
       }
     }
 
-    // 보스 전투
-    if(boss.arrived && boss.alive){
-      var by = screenY(boss.d);
-      for(var bi2=bullets.length-1;bi2>=0;bi2--){
-        var bx=bullets[bi2];
-        if(bx.y <= by+40 && bx.x>roadL && bx.x<roadR){
-          boss.hp -= 1; bullets.splice(bi2,1);
-          effects.push({x:bx.x,y:by+30,vx:0,vy:0,life:0,max:60,color:"#fff",r:3,flash:true});
+    /* enemies */
+    for(var e=0;e<enemies.length;e++){
+      var en=enemies[e]; if(!en.alive) continue;
+      var ey=screenY(en.d);
+      if(en.flash>0) en.flash-=dt; if(en.kb>0) en.kb-=dt*80;
+      if(ey>-40 && ey<H+40){
+        /* enemy fires down */
+        en.fireCd-=dt;
+        if(en.fireCd<=0 && ey<squadY-40 && eBullets.length<MAX_EB){
+          en.fireCd=1.1+Math.random()*1.3;
+          var dx=(squad.x-en.x); var norm=Math.max(1,Math.abs(dx));
+          eBullets.push({x:en.x,y:ey+8,vy:300,vx:Math.max(-60,Math.min(60,dx/norm*40))});
+          sfxEnemyShot();
+        }
+        /* player bullets hit enemy */
+        for(var bi2=pBullets.length-1;bi2>=0;bi2--){
+          var pb2=pBullets[bi2];
+          if(pb2.y<=ey+12 && pb2.y>=ey-12 && Math.abs(pb2.x-en.x)<11){
+            en.hp-=1; pBullets.splice(bi2,1); en.flash=0.07; en.kb=4;
+            spark(pb2.x,ey,"#fff",4,90);
+            if(en.hp<=0){ en.alive=false; smoke(en.x,ey,6); spark(en.x,ey,"#ff5a5a",14,150); sfxKill(); shake(2); break; }
+          }
         }
       }
-      if(boss.hp<=0){ boss.alive=false; boom(W/2, by+40, "#ffd54a", 40); return win(); }
-      // 보스 반격: 주기적으로 병력 깎기
-      boss.drainCd -= dt;
+      /* contact */
+      if(en.alive && traveled>=en.d){
+        en.alive=false;
+        squad.count=Math.max(0,squad.count-2);
+        spark(squad.x,squadY,"#ff6b6b",8,120); dmgNum(squad.x,squadY-20,2,"#ff6b6b"); sfxHit(); shake(4); updateHud();
+        if(squad.count<=0){ return gameOver("적 병력에 파묻혔습니다."); }
+      }
+    }
+
+    /* boss */
+    if(boss.arrived && boss.alive){
+      var byy=screenY(boss.d);
+      if(boss.flash>0) boss.flash-=dt;
+      for(var bi3=pBullets.length-1;bi3>=0;bi3--){
+        var pb3=pBullets[bi3];
+        if(pb3.y<=byy+46 && pb3.x>roadL && pb3.x<roadR){
+          boss.hp-=1; pBullets.splice(bi3,1); boss.flash=0.05;
+          if(pb3.y<byy) spark(pb3.x,byy+30,"#ffd27a",2,70);
+          if((boss.hp%14)===0){ sfxBossHit(); shake(3); }
+        }
+      }
+      if(boss.hp<=0){ boss.alive=false; return bossDie(byy); }
+      /* boss fires volley + drains */
+      boss.fireCd-=dt;
+      if(boss.fireCd<=0 && eBullets.length<MAX_EB-6){
+        boss.fireCd=0.85;
+        for(var v=-2;v<=2;v++){ eBullets.push({x:roadMid()+v*26,y:byy+30,vy:320,vx:v*22}); }
+        sfxEnemyShot();
+      }
+      boss.drainCd-=dt;
       if(boss.drainCd<=0){
-        boss.drainCd=0.7;
-        var d=Math.max(2,Math.round(squad.count*0.06)+2);
-        squad.count=Math.max(0,squad.count-d);
-        addFloater(squad.x, squadY-24, "-"+d, "#ff6b6b");
-        updateHud();
+        boss.drainCd=0.9;
+        var d2=Math.max(2,Math.round(squad.count*0.05)+2);
+        squad.count=Math.max(0,squad.count-d2); dmgNum(squad.x,squadY-22,d2,"#ff6b6b"); updateHud();
         if(squad.count<=0){ return gameOver("성문 앞에서 부대가 무너졌습니다."); }
       }
     }
 
-    // 이펙트/플로터 수명
-    for(var ef=effects.length-1;ef>=0;ef--){ var f=effects[ef]; f.life+=dt*1000; f.x+=f.vx*dt; f.y+=f.vy*dt; if(f.life>=f.max) effects.splice(ef,1); }
-    for(var fl=floaters.length-1;fl>=0;fl--){ var ft=floaters[fl]; ft.life+=dt*1000; ft.y-=dt*40; if(ft.life>=ft.max) floaters.splice(fl,1); }
+    /* particles / floats */
+    for(var p=parts.length-1;p>=0;p--){ var pt=parts[p]; pt.life+=dt*1000; pt.x+=pt.vx*dt; pt.y+=pt.vy*dt; if(pt.smoke){ pt.vx*=0.94; pt.vy*=0.94; } else { pt.vy+=dt*60; } if(pt.life>=pt.max) parts.splice(p,1); }
+    for(var f=floats.length-1;f>=0;f--){ var ff=floats[f]; ff.life+=dt*1000; ff.y+=ff.vy*dt; if(ff.life>=ff.max) floats.splice(f,1); }
+
+    if(shakeMag>0){ shakeMag-=dt*40; if(shakeMag<0) shakeMag=0; }
+  }
+  function squadHalf(){ return Math.max(16,Math.min((roadR-roadL)*0.32,14+squad.count*0.5)); }
+
+  function bossDie(byy){
+    smoke(roadMid(),byy,20); spark(roadMid(),byy,"#ffd54a",50,240); spark(roadMid(),byy,"#ff8c3a",40,300);
+    sfxBoom(); setTimeout(sfxWin,180); shake(16); stop(0.06);
+    setTimeout(win,420);
   }
 
-  // ---- Render ----
-  function drawRoad(){
-    ctx.fillStyle="#0c1424"; ctx.fillRect(0,0,W,H);
-    // 잔디
-    ctx.fillStyle="#12351f"; ctx.fillRect(0,0,W,H);
+  /* ---------- Render ---------- */
+  function lerp(a,b,t){ return a+(b-a)*t; }
+  function progFrac(){ return Math.min(1,traveled/TRACK_END); }
+  function drawBackground(){
+    var pf=progFrac();
+    // 지면 색: 평야(초록) → 성 앞(회갈색)
+    var g1r=lerp(18,42,pf), g1g=lerp(53,40,pf), g1b=lerp(31,44,pf);
+    var g2r=lerp(12,26,pf), g2g=lerp(38,24,pf), g2b=lerp(22,30,pf);
+    var grad=ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0,"rgb("+(g1r|0)+","+(g1g|0)+","+(g1b|0)+")");
+    grad.addColorStop(1,"rgb("+(g2r|0)+","+(g2g|0)+","+(g2b|0)+")");
+    ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+
+    // 원경 패럴랙스 (언덕/성벽 실루엣, 0.35x)
+    var farOff=(traveled*0.35)%160;
+    ctx.fillStyle=pf<0.6?"rgba(30,60,42,.55)":"rgba(60,55,70,.55)";
+    for(var y=-farOff-160;y<H;y+=160){
+      ctx.beginPath();
+      for(var x=0;x<=W;x+=40){ var hh=18+((Math.sin((x+y)*0.05)+1)*10); ctx.lineTo(x,y+40-hh); }
+      ctx.lineTo(W,y+50); ctx.lineTo(0,y+50); ctx.closePath(); ctx.fill();
+    }
+
     // 도로
-    ctx.fillStyle="#2a2f3a"; ctx.fillRect(roadL,0,roadR-roadL,H);
-    // 도로 가장자리
-    ctx.fillStyle="#3a4150"; ctx.fillRect(roadL-4,0,4,H); ctx.fillRect(roadR,0,4,H);
-    // 스크롤 차선
-    ctx.fillStyle="rgba(255,255,255,.18)";
-    var dash=34, gap=28, cx=(roadL+roadR)/2;
-    var off=(traveled % (dash+gap));
-    for(var y=-off; y<H; y+=dash+gap){ ctx.fillRect(cx-3, y, 6, dash); }
+    ctx.fillStyle=pf<0.6?"#2b3140":"#33303a"; ctx.fillRect(roadL,0,roadR-roadL,H);
+    ctx.fillStyle="rgba(255,255,255,.05)"; ctx.fillRect(roadL,0,3,H); ctx.fillRect(roadR-3,0,3,H);
+    // 갓길 근경 오브젝트 (1x 패럴랙스: 풀/바위)
+    var nearOff=(traveled)%90;
+    for(var yy=-nearOff-90;yy<H;yy+=90){
+      drawTuft(roadL-12,yy+20,pf); drawTuft(roadR+12,yy+64,pf);
+      drawTuft(roadL-24,yy+70,pf); drawTuft(roadR+24,yy+30,pf);
+    }
+    // 차선 점선
+    ctx.fillStyle="rgba(255,255,255,.16)";
+    var dash=34,gap=30,cx=roadMid(),off=(traveled%(dash+gap));
+    for(var yd=-off;yd<H;yd+=dash+gap){ ctx.fillRect(cx-3,yd,6,dash); }
   }
+  function drawTuft(x,y,pf){
+    if(pf<0.6){ ctx.fillStyle="rgba(60,120,70,.5)"; ctx.beginPath(); ctx.ellipse(x,y,7,4,0,0,Math.PI*2); ctx.fill(); }
+    else { ctx.fillStyle="rgba(90,88,100,.55)"; ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fill(); }
+  }
+
+  function soldier(x,y,bodyColor,headColor,bob,up){
+    var yy=y+bob;
+    // 다리 그림자
+    ctx.fillStyle="rgba(0,0,0,.25)"; ctx.beginPath(); ctx.ellipse(x,yy+7,5,2,0,0,Math.PI*2); ctx.fill();
+    // 몸통
+    ctx.fillStyle=bodyColor; roundRect(x-4,yy-2,8,9,3); ctx.fill();
+    // 머리
+    ctx.fillStyle=headColor; ctx.beginPath(); ctx.arc(x,yy-5,3.2,0,Math.PI*2); ctx.fill();
+    // 헬멧
+    ctx.fillStyle=bodyColor; ctx.beginPath(); ctx.arc(x,yy-6,3.4,Math.PI,0); ctx.fill();
+    // 총
+    ctx.strokeStyle="#20242c"; ctx.lineWidth=1.6; ctx.beginPath();
+    if(up){ ctx.moveTo(x+3,yy+1); ctx.lineTo(x+3,yy-6); } else { ctx.moveTo(x-3,yy+1); ctx.lineTo(x-3,yy+7); }
+    ctx.stroke();
+  }
+  function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
   function drawGates(){
     for(var g=0;g<gates.length;g++){
       var gt=gates[g]; if(gt.consumed) continue;
-      var y=screenY(gt.d); if(y<-80||y>H+80) continue;
-      var mid=(roadL+roadR)/2;
-      var segs=[[roadL,mid,gt.ops[0]],[mid,roadR,gt.ops[1]]];
+      var y=screenY(gt.d); if(y<-90||y>H+90) continue;
+      var mid=roadMid(), segs=[[roadL,mid,gt.ops[0]],[mid,roadR,gt.ops[1]]];
       for(var s=0;s<2;s++){
-        var x0=segs[s][0], x1=segs[s][1], op=segs[s][2];
-        var good = op.t==='mul'||op.t==='add';
-        ctx.fillStyle = good?"rgba(70,220,150,.28)":"rgba(255,80,80,.30)";
-        ctx.fillRect(x0+3, y-34, (x1-x0)-6, 68);
-        ctx.strokeStyle = good?"rgba(120,255,190,.9)":"rgba(255,120,120,.9)";
-        ctx.lineWidth=2; ctx.strokeRect(x0+3, y-34, (x1-x0)-6, 68);
-        ctx.fillStyle="#fff"; ctx.font="800 26px -apple-system,sans-serif";
-        ctx.textAlign="center"; ctx.textBaseline="middle";
-        ctx.fillText(opText(op), (x0+x1)/2, y);
+        var x0=segs[s][0],x1=segs[s][1],op=segs[s][2],good=opGood(op);
+        var grd=ctx.createLinearGradient(0,y-36,0,y+36);
+        if(good){ grd.addColorStop(0,"rgba(60,230,150,.12)"); grd.addColorStop(1,"rgba(60,230,150,.42)"); }
+        else { grd.addColorStop(0,"rgba(255,70,70,.12)"); grd.addColorStop(1,"rgba(255,70,70,.44)"); }
+        ctx.fillStyle=grd; ctx.fillRect(x0+3,y-36,(x1-x0)-6,72);
+        ctx.strokeStyle=good?"rgba(140,255,200,.95)":"rgba(255,130,130,.95)"; ctx.lineWidth=2.5;
+        ctx.strokeRect(x0+3,y-36,(x1-x0)-6,72);
+        ctx.fillStyle="#fff"; ctx.font="800 27px -apple-system,sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+        ctx.fillText((good?"▲ ":"▼ ")+opText(op),(x0+x1)/2,y);
       }
+    }
+  }
+  function drawBarricades(){
+    for(var k=0;k<barricades.length;k++){
+      var br=barricades[k]; if(!br.alive) continue;
+      var y=screenY(br.d)-(br.kb||0); if(y<-70||y>H+70) continue;
+      var w=br.w,h=30,x=br.x;
+      ctx.fillStyle="#5a3b2a"; ctx.fillRect(x-w/2,y-h/2,w,h);
+      ctx.fillStyle="#7a4d34"; for(var s=0;s<3;s++){ ctx.fillRect(x-w/2, y-h/2+s*10+1, w, 3); }
+      // 철조망 느낌 상단
+      ctx.strokeStyle="#3a2a20"; ctx.lineWidth=2; ctx.strokeRect(x-w/2,y-h/2,w,h);
+      if(br.flash>0){ ctx.fillStyle="rgba(255,255,255,"+(br.flash/0.06*0.6)+")"; ctx.fillRect(x-w/2,y-h/2,w,h); }
+      // hp
+      ctx.fillStyle="rgba(0,0,0,.55)"; ctx.fillRect(x-w/2,y-h/2-9,w,6);
+      ctx.fillStyle="#ff5555"; ctx.fillRect(x-w/2,y-h/2-9,w*Math.max(0,br.hp/br.maxhp),6);
+      ctx.fillStyle="#fff"; ctx.font="800 17px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(br.hp,x,y);
     }
   }
   function drawEnemies(){
     for(var e=0;e<enemies.length;e++){
-      var en=enemies[e]; if(en.dead) continue;
-      var y=screenY(en.d); if(y<-60||y>H+60) continue;
-      var w=en.w, h=32;
-      ctx.fillStyle="#8a2b2b"; ctx.fillRect(en.x-w/2, y-h/2, w, h);
-      ctx.fillStyle="#b83a3a"; ctx.fillRect(en.x-w/2, y-h/2, w, 6);
-      // hp bar
-      ctx.fillStyle="rgba(0,0,0,.5)"; ctx.fillRect(en.x-w/2, y-h/2-8, w, 5);
-      ctx.fillStyle="#ff5555"; ctx.fillRect(en.x-w/2, y-h/2-8, w*Math.max(0,en.hp/en.maxhp), 5);
-      ctx.fillStyle="#fff"; ctx.font="800 18px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
-      ctx.fillText(en.hp, en.x, y);
+      var en=enemies[e]; if(!en.alive) continue;
+      var y=screenY(en.d); if(y<-30||y>H+30) continue;
+      var bob=Math.sin(gameTime*7+en.bob)*1.5;
+      var x=en.x+(en.kb?0:0);
+      soldier(x,y-(en.kb||0),"#c23a3a","#e8b89a",bob,false);
+      if(en.flash>0){ ctx.fillStyle="rgba(255,255,255,"+(en.flash/0.07*0.85)+")"; ctx.beginPath(); ctx.arc(x,y-5,7,0,Math.PI*2); ctx.fill(); }
     }
   }
   function drawBoss(){
-    if(!boss.alive){ return; }
-    var y=screenY(boss.d); if(y<-120||y>H+120) return;
-    var w=(roadR-roadL)*0.9, h=64, x=(roadL+roadR)/2;
-    ctx.font="52px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
-    ctx.fillText("🏰", x, y-6);
+    if(!boss.alive) return;
+    var y=screenY(boss.d); if(y<-140||y>H+140) return;
+    var w=(roadR-roadL)*0.96,x=roadMid();
+    // 성문 구조
+    ctx.fillStyle="#4a4550"; ctx.fillRect(x-w/2,y-30,w,64);
+    ctx.fillStyle="#39343f"; ctx.fillRect(x-w/2,y-30,w,10);
+    // 흉벽
+    for(var i=0;i<7;i++){ ctx.fillStyle="#524c58"; ctx.fillRect(x-w/2+i*(w/7),y-42,w/7-4,14); }
+    // 문
+    ctx.fillStyle="#2a2530"; roundRect(x-22,y-6,44,40,8); ctx.fill();
+    ctx.font="34px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("🏰",x,y-52);
+    if(boss.flash>0){ ctx.fillStyle="rgba(255,255,255,"+(boss.flash/0.05*0.5)+")"; ctx.fillRect(x-w/2,y-42,w,76); }
     // hp bar
-    ctx.fillStyle="rgba(0,0,0,.55)"; ctx.fillRect(x-w/2, y-h, w, 12);
-    ctx.fillStyle="#ff4d4d"; ctx.fillRect(x-w/2, y-h, w*Math.max(0,boss.hp/boss.maxhp), 12);
-    ctx.strokeStyle="#fff"; ctx.lineWidth=1.5; ctx.strokeRect(x-w/2, y-h, w, 12);
-    ctx.fillStyle="#fff"; ctx.font="800 16px sans-serif"; ctx.fillText("성문 HP "+Math.max(0,boss.hp), x, y-h-12);
+    var bw=w*0.92;
+    ctx.fillStyle="rgba(0,0,0,.6)"; ctx.fillRect(x-bw/2,y-58,bw,10);
+    ctx.fillStyle="#ff3d3d"; ctx.fillRect(x-bw/2,y-58,bw*Math.max(0,boss.hp/boss.maxhp),10);
+    ctx.strokeStyle="#fff"; ctx.lineWidth=1.4; ctx.strokeRect(x-bw/2,y-58,bw,10);
+    ctx.fillStyle="#fff"; ctx.font="800 14px sans-serif"; ctx.textAlign="center"; ctx.fillText("성문 HP "+Math.max(0,boss.hp),x,y-66);
   }
   function drawBullets(){
-    ctx.fillStyle="#ffe17a";
-    for(var b=0;b<bullets.length;b++){ var bl=bullets[b]; ctx.fillRect(bl.x-2, bl.y-8, 4, 12); }
+    ctx.fillStyle="#ffe27a";
+    for(var b=0;b<pBullets.length;b++){ var bl=pBullets[b]; ctx.fillRect(bl.x-2,bl.y-9,4,13); }
+    ctx.fillStyle="#ff5b5b";
+    for(var e=0;e<eBullets.length;e++){ var el=eBullets[e]; ctx.beginPath(); ctx.arc(el.x,el.y,3.2,0,Math.PI*2); ctx.fill(); }
   }
   function drawSquad(){
-    var n=Math.max(0,squad.count);
-    var shown=Math.min(n,28);
-    var spreadW=Math.min((roadR-roadL)*0.55, 26+n*1.0);
-    // 배치: 격자형 몰림
-    var perRow=Math.max(3, Math.round(Math.sqrt(shown*1.4)));
+    var n=Math.max(0,squad.count), shown=Math.min(n,44);
+    var spreadW=Math.min((roadR-roadL)*0.62,30+n*0.9);
+    var perRow=Math.max(4,Math.round(Math.sqrt(shown*1.6)));
     for(var i=0;i<shown;i++){
-      var row=Math.floor(i/perRow), col=i%perRow;
-      var rowN=Math.min(perRow, shown-row*perRow);
-      var gx = squad.x + ((col-(rowN-1)/2)/Math.max(1,perRow-1))*spreadW + (Math.sin(i*13.3)*2);
-      var gy = squadY + row*11 + 6 - (traveled*0)  ;
-      // 살짝 달리는 진동
-      var bob = Math.sin((performance.now()/90)+i)*1.5;
-      // 몸
-      ctx.fillStyle="#3f8f4f"; ctx.beginPath(); ctx.arc(gx, gy+bob, 5.5, 0, Math.PI*2); ctx.fill();
-      // 머리
-      ctx.fillStyle="#e8c39e"; ctx.beginPath(); ctx.arc(gx, gy-5+bob, 3.1, 0, Math.PI*2); ctx.fill();
-      // 총
-      ctx.fillStyle="#222"; ctx.fillRect(gx+3, gy-6+bob, 2, 8);
+      var row=Math.floor(i/perRow), col=i%perRow, rowN=Math.min(perRow,shown-row*perRow);
+      var gx=squad.x+((col-(rowN-1)/2)/Math.max(1,perRow-1))*spreadW+Math.sin(i*12.9)*1.5;
+      var gy=squadY+row*10+4;
+      var bob=Math.sin(gameTime*9+i*0.7)*1.6;
+      soldier(gx,gy,"#2f6dd0","#e8c39e",bob,true);
     }
-    if(n>shown){
-      ctx.fillStyle="#fff"; ctx.font="800 13px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
-      ctx.fillText("+"+(n-shown), squad.x, squadY+38);
-    }
+    if(n>shown){ ctx.fillStyle="#fff"; ctx.font="800 13px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("+"+(n-shown),squad.x,squadY+42); }
   }
-  function drawEffects(){
-    for(var e=0;e<effects.length;e++){
-      var f=effects[e]; var a=1-f.life/f.max;
+  function drawParts(){
+    for(var p=0;p<parts.length;p++){
+      var pt=parts[p], a=1-pt.life/pt.max;
       ctx.globalAlpha=Math.max(0,a);
-      ctx.fillStyle=f.color;
-      if(f.flash){ ctx.beginPath(); ctx.arc(f.x,f.y,f.r*(1+ (1-a)),0,Math.PI*2); ctx.fill(); }
-      else { ctx.beginPath(); ctx.arc(f.x,f.y,f.r,0,Math.PI*2); ctx.fill(); }
+      if(pt.smoke){ ctx.fillStyle=pt.color+(0.35*a)+")"; ctx.beginPath(); ctx.arc(pt.x,pt.y,pt.r*(1+(1-a)*1.2),0,Math.PI*2); ctx.fill(); }
+      else { ctx.fillStyle=pt.color; ctx.beginPath(); ctx.arc(pt.x,pt.y,pt.flash?pt.r*(1+(1-a)):pt.r,0,Math.PI*2); ctx.fill(); }
     }
     ctx.globalAlpha=1;
-    for(var fl=0;fl<floaters.length;fl++){
-      var ft=floaters[fl]; var a2=1-ft.life/ft.max;
-      ctx.globalAlpha=Math.max(0,a2);
-      ctx.fillStyle=ft.color; ctx.font="800 22px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
-      ctx.fillText(ft.text, ft.x, ft.y);
+    for(var f=0;f<floats.length;f++){
+      var ff=floats[f], a2=1-ff.life/ff.max;
+      ctx.globalAlpha=Math.max(0,a2); ctx.fillStyle=ff.color;
+      ctx.font=(ff.big?"800 24px":"800 16px")+" sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+      ctx.fillText(ff.text,ff.x,ff.y);
     }
     ctx.globalAlpha=1;
   }
   function render(){
-    drawRoad();
+    ctx.save();
+    if(shakeMag>0){ ctx.translate((Math.random()-0.5)*shakeMag,(Math.random()-0.5)*shakeMag); }
+    drawBackground();
     drawGates();
+    drawBarricades();
     drawEnemies();
     drawBoss();
     drawBullets();
     drawSquad();
-    drawEffects();
+    drawParts();
+    ctx.restore();
   }
 
-  // ---- Loop ----
+  /* ---------- Loop ---------- */
   function loop(ts){
     if(!running) return;
     if(!timePrev) timePrev=ts;
     var dt=Math.min(0.05,(ts-timePrev)/1000); timePrev=ts;
-    update(dt);
-    render();
+    update(dt); render();
     requestAnimationFrame(loop);
   }
 
-  // ---- Flow ----
+  /* ---------- Flow ---------- */
   function startGame(){
-    unlock();
-    resize();
-    buildLevel();
+    unlock(); resize(); buildLevel();
     state="play"; running=true; timePrev=0;
     document.getElementById("startOv").classList.remove("show");
     document.getElementById("winOv").classList.remove("show");
     document.getElementById("loseOv").classList.remove("show");
     hintEl.style.display="block";
     requestAnimationFrame(loop);
-    setTimeout(function(){ hintEl.style.display="none"; }, 3500);
+    setTimeout(function(){ hintEl.style.display="none"; },3500);
   }
-  function win(){
-    state="win"; running=false;
-    document.getElementById("winCount").textContent=squad.count;
-    document.getElementById("winOv").classList.add("show");
-    sfxWin();
-  }
-  function gameOver(msg){
-    state="lose"; running=false;
-    document.getElementById("loseMsg").textContent=msg||"병력이 모두 쓰러졌습니다.";
-    document.getElementById("loseOv").classList.add("show");
-    sfxLose();
-  }
+  function win(){ state="win"; running=false; document.getElementById("winCount").textContent=squad.count; document.getElementById("winOv").classList.add("show"); }
+  function gameOver(msg){ state="lose"; running=false; sfxLose(); document.getElementById("loseMsg").textContent=msg||"병력이 모두 쓰러졌습니다."; document.getElementById("loseOv").classList.add("show"); }
+  document.getElementById("startBtn").addEventListener("click",startGame);
+  document.getElementById("winBtn").addEventListener("click",startGame);
+  document.getElementById("loseBtn").addEventListener("click",startGame);
 
-  document.getElementById("startBtn").addEventListener("click", startGame);
-  document.getElementById("winBtn").addEventListener("click", startGame);
-  document.getElementById("loseBtn").addEventListener("click", startGame);
-
-  // ---- Input ----
+  /* ---------- Input ---------- */
   var pressing=false;
-  function setTargetFromX(clientX){
-    var r=cv.getBoundingClientRect();
-    squad.targetX = Math.max(roadL+8, Math.min(roadR-8, clientX - r.left));
-  }
-  cv.addEventListener("pointerdown", function(e){ if(state!=="play"){ return; } pressing=true; unlock(); setTargetFromX(e.clientX); try{cv.setPointerCapture(e.pointerId);}catch(_){} });
-  cv.addEventListener("pointermove", function(e){ if(pressing && state==="play") setTargetFromX(e.clientX); });
-  window.addEventListener("pointerup", function(){ pressing=false; });
-  window.addEventListener("pointercancel", function(){ pressing=false; });
-  // 키보드
+  function setTargetFromX(clientX){ var r=cv.getBoundingClientRect(); squad.targetX=Math.max(roadL+10,Math.min(roadR-10,clientX-r.left)); }
+  cv.addEventListener("pointerdown",function(e){ if(state!=="play") return; pressing=true; unlock(); setTargetFromX(e.clientX); try{cv.setPointerCapture(e.pointerId);}catch(_){} });
+  cv.addEventListener("pointermove",function(e){ if(pressing&&state==="play") setTargetFromX(e.clientX); });
+  window.addEventListener("pointerup",function(){ pressing=false; });
+  window.addEventListener("pointercancel",function(){ pressing=false; });
   var keyDir=0;
-  window.addEventListener("keydown", function(e){
-    if(state!=="play") return;
-    if(e.key==="ArrowLeft"||e.key==="a"||e.key==="A") keyDir=-1;
-    else if(e.key==="ArrowRight"||e.key==="d"||e.key==="D") keyDir=1;
-  });
-  window.addEventListener("keyup", function(e){
-    if(e.key==="ArrowLeft"||e.key==="a"||e.key==="A"||e.key==="ArrowRight"||e.key==="d"||e.key==="D") keyDir=0;
-  });
-  // 키보드 이동을 목표에 반영
-  setInterval(function(){ if(state==="play" && keyDir!==0){ squad.targetX = Math.max(roadL+8, Math.min(roadR-8, squad.targetX + keyDir*14)); } }, 30);
+  window.addEventListener("keydown",function(e){ if(state!=="play") return; if(e.key==="ArrowLeft"||e.key==="a"||e.key==="A") keyDir=-1; else if(e.key==="ArrowRight"||e.key==="d"||e.key==="D") keyDir=1; });
+  window.addEventListener("keyup",function(e){ if(["ArrowLeft","a","A","ArrowRight","d","D"].indexOf(e.key)>=0) keyDir=0; });
+  setInterval(function(){ if(state==="play"&&keyDir!==0){ squad.targetX=Math.max(roadL+10,Math.min(roadR-10,squad.targetX+keyDir*15)); } },30);
+  window.addEventListener("pointerdown",unlock,{once:true});
+  document.addEventListener("touchstart",unlock,{once:true,passive:true});
 
-  window.addEventListener("pointerdown", unlock, {once:true});
-  document.addEventListener("touchstart", unlock, {once:true, passive:true});
-
-  // ---- init ----
-  resize();
-  buildLevel();
-  render();
+  /* ---------- init ---------- */
+  resize(); buildLevel(); render();
   document.getElementById("startOv").classList.add("show");
   hintEl.style.display="none";
 
-  // 검증용 훅
-  window.__runner = {
+  /* debug hooks */
+  window.__runner={
     start:startGame,
-    getState:function(){ return { state:state, count:squad.count, traveled:Math.round(traveled), bossHp:boss.hp }; },
-    tick:function(dt){ var was=running; running=true; update(dt); running=was; return this.getState(); },
+    getState:function(){ return {state:state,count:squad.count,traveled:Math.round(traveled),bossHp:boss.hp,enemiesAlive:enemies.filter(function(e){return e.alive;}).length,eBullets:eBullets.length,pBullets:pBullets.length,parts:parts.length}; },
+    tick:function(dt){ var w=running; running=true; update(dt); running=w; return this.getState(); },
     setCount:function(n){ squad.count=n; },
     jumpToBoss:function(){ traveled=boss.d; boss.arrived=true; },
-    info:function(){ return { gates:gates.map(function(g){return {d:g.d,ops:g.ops.map(opText)};}), enemies:enemies.map(function(e){return {d:e.d,hp:e.maxhp};}), boss:{d:boss.d,hp:boss.maxhp}, trackEnd:TRACK_END }; }
+    info:function(){ return {gates:gates.length,enemies:enemies.length,barricades:barricades.length,boss:boss.maxhp,trackEnd:TRACK_END}; }
   };
 })();
 </script>
