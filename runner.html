@@ -169,7 +169,7 @@
   var state="start";
   var squad, pBullets, eBullets, enemies, barricades, gates, boss, parts, floats;
   var traveled, speed, roadL, roadR, squadY, fireCd, timePrev, running=false;
-  var TRACK_END, shakeMag=0, hitstop=0, gameTime=0;
+  var TRACK_END, shakeMag=0, hitstop=0, gameTime=0, BOSS_GAP=0;
 
   function roadBounds(){ roadL=W*0.11; roadR=W*0.89; }
   function roadMid(){ return (roadL+roadR)/2; }
@@ -208,10 +208,11 @@
     barr(2900,66);
     wave(3150,8,5);
     gate(3480,{t:'add',v:22},{t:'mul',v:2});
-    wave(3760,12,5);   // 대규모 웨이브
-    wave(3860,6,5);
+    wave(3620,12,5);   // 대규모 웨이브 (성문 직전)
+    wave(3720,6,5);
     boss={ d:4300, hp:240, maxhp:240, alive:true, arrived:false, drainCd:0, fireCd:0.4, flash:0 };
-    TRACK_END=boss.d;
+    BOSS_GAP=squadY-H*0.26;   // 성문이 상단에 멈춰 보이도록
+    TRACK_END=boss.d-BOSS_GAP;
     updateHud();
   }
 
@@ -255,7 +256,7 @@
     gameTime+=dt;
     if(hitstop>0){ hitstop-=dt; if(hitstop>0){ return; } }
 
-    if(!boss.arrived){ traveled+=speed*dt; if(traveled>=boss.d){ traveled=boss.d; boss.arrived=true; } }
+    if(!boss.arrived){ traveled+=speed*dt; if(traveled>=boss.d-BOSS_GAP){ traveled=boss.d-BOSS_GAP; boss.arrived=true; } }
 
     squad.x+=(squad.targetX-squad.x)*Math.min(1,dt*16);
     squad.x=Math.max(roadL+10,Math.min(roadR-10,squad.x));
@@ -626,7 +627,7 @@
     getState:function(){ return {state:state,count:squad.count,traveled:Math.round(traveled),bossHp:boss.hp,enemiesAlive:enemies.filter(function(e){return e.alive;}).length,eBullets:eBullets.length,pBullets:pBullets.length,parts:parts.length}; },
     tick:function(dt){ var w=running; running=true; update(dt); running=w; return this.getState(); },
     setCount:function(n){ squad.count=n; },
-    jumpToBoss:function(){ traveled=boss.d; boss.arrived=true; },
+    jumpToBoss:function(){ enemies.forEach(function(e){e.alive=false;}); barricades.forEach(function(b){b.alive=false;}); traveled=boss.d-BOSS_GAP; boss.arrived=true; },
     info:function(){ return {gates:gates.length,enemies:enemies.length,barricades:barricades.length,boss:boss.maxhp,trackEnd:TRACK_END}; }
   };
 })();
