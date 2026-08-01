@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light">
+<meta name="theme-color" content="#2c1f5a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>냥냥 피아노 타일 🐱🎹</title>
@@ -83,10 +86,22 @@ var AudioEngine = {
     try {
       var AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) { this.ok=false; return; }
-      this.ctx = new AC();
-      this.master = this.ctx.createGain();
-      this.master.gain.value = 0.9;
-      this.master.connect(this.ctx.destination);
+      var ac = new AC();
+      this.ctx = ac;
+      this.master = ac.createGain();
+      this.master.gain.value = 0.82;
+      this.bus = this.master;
+      try {
+        var bus = ac.createGain();
+        var tone = ac.createBiquadFilter(); tone.type='lowpass'; tone.frequency.value=6800; tone.Q.value=0.4;
+        bus.connect(tone); tone.connect(this.master);
+        var delay = ac.createDelay(1.0); delay.delayTime.value=0.17;
+        var fb = ac.createGain(); fb.gain.value=0.24;
+        var wet = ac.createGain(); wet.gain.value=0.14;
+        bus.connect(delay); delay.connect(fb); fb.connect(delay); delay.connect(wet); wet.connect(this.master);
+        this.bus = bus;
+      } catch(e){ this.bus = this.master; }
+      this.master.connect(ac.destination);
       this.ok = true;
       try { if (navigator.audioSession) { navigator.audioSession.type = 'playback'; } } catch(e){}
     } catch(e){ this.ok=false; }
@@ -109,24 +124,28 @@ var AudioEngine = {
   now:function(){ return this.ok ? this.ctx.currentTime : 0; },
   setMuted:function (m) {
     this.muted = m;
-    if (this.ok) { try { this.master.gain.setTargetAtTime(m?0:0.9, this.ctx.currentTime, 0.02); } catch(e){} }
+    if (this.ok) { try { this.master.gain.setTargetAtTime(m?0:0.82, this.ctx.currentTime, 0.02); } catch(e){} }
   },
   note:function (midi, time, dur, vol) {
     if (!this.ok || this.muted) return;
     try {
-      var ac = this.ctx;
-      var f = 440 * Math.pow(2, (midi-69)/12);
-      var g = ac.createGain(); g.connect(this.master);
-      var v = (vol==null?0.5:vol); var t = time;
+      var ac = this.ctx, f = 440 * Math.pow(2, (midi-69)/12), t = time, v = (vol==null?0.5:vol);
+      var out = this.bus || this.master;
+      var g = ac.createGain(); g.connect(out);
+      var atk=0.010, dec=0.13, sus=Math.max(v*0.55,0.0002), endT=t+Math.max(dur,0.22);
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(v, t+0.008);
-      g.gain.exponentialRampToValueAtTime(v*0.35, t+0.10);
-      g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
-      var o1 = ac.createOscillator(); o1.type='triangle'; o1.frequency.value=f;
-      var o2 = ac.createOscillator(); o2.type='sine'; o2.frequency.value=f*2;
-      var g2 = ac.createGain(); g2.gain.value=0.28; g2.connect(g);
-      o1.connect(g); o2.connect(g2);
-      o1.start(t); o2.start(t); o1.stop(t+dur+0.05); o2.stop(t+dur+0.05);
+      g.gain.exponentialRampToValueAtTime(v, t+atk);
+      g.gain.exponentialRampToValueAtTime(sus, t+atk+dec);
+      g.gain.exponentialRampToValueAtTime(0.0001, endT);
+      var parts=[[1,1.0,'triangle'],[2,0.3,'sine'],[3,0.12,'sine']];
+      for (var i=0;i<parts.length;i++){
+        var o=ac.createOscillator(); o.type=parts[i][2]; o.frequency.value=f*parts[i][0];
+        var pg=ac.createGain(); pg.gain.value=parts[i][1]; o.connect(pg); pg.connect(g);
+        o.start(t); o.stop(endT+0.08);
+      }
+      var od=ac.createOscillator(); od.type='triangle'; od.frequency.value=f; try { od.detune.value=6; } catch(e){}
+      var odg=ac.createGain(); odg.gain.value=0.2; od.connect(odg); odg.connect(g);
+      od.start(t); od.stop(endT+0.08);
     } catch(e){}
   },
   ding:function (hi) {
@@ -167,108 +186,109 @@ function seq(bpm, notes) {
   }
   return {events:out, length:t, spb:spb, bpm:bpm};
 }
+function rep(a,n){ var o=[]; for(var i=0;i<n;i++){ for(var j=0;j<a.length;j++) o.push(a[j]); } return o; }
 
 var SONGS = [
   { id:'twinkle', title:'반짝반짝 작은별', emoji:'⭐', color:'#ffd54a', genre:'lullaby',
     src:'프랑스 전래동요 (퍼블릭 도메인)',
-    data:seq(104, [
+    data:seq(128, rep([
       [60,1],[60,1],[67,1],[67,1],[69,1],[69,1],[67,2],
       [65,1],[65,1],[64,1],[64,1],[62,1],[62,1],[60,2],
       [67,1],[67,1],[65,1],[65,1],[64,1],[64,1],[62,2],
       [67,1],[67,1],[65,1],[65,1],[64,1],[64,1],[62,2],
       [60,1],[60,1],[67,1],[67,1],[69,1],[69,1],[67,2],
       [65,1],[65,1],[64,1],[64,1],[62,1],[62,1],[60,2]
-    ]) },
+    ], 2)) },
   { id:'ode', title:'환희의 송가', emoji:'🎶', color:'#7ee0ff', genre:'classical',
     src:'베토벤 (1824, 퍼블릭 도메인)',
-    data:seq(112, [
+    data:seq(132, rep([
       [64,1],[64,1],[65,1],[67,1],[67,1],[65,1],[64,1],[62,1],
       [60,1],[60,1],[62,1],[64,1],[64,1.5],[62,0.5],[62,2],
       [64,1],[64,1],[65,1],[67,1],[67,1],[65,1],[64,1],[62,1],
       [60,1],[60,1],[62,1],[64,1],[62,1.5],[60,0.5],[60,2]
-    ]) },
+    ], 4)) },
   { id:'nabiya', title:'나비야', emoji:'🦋', color:'#b6f56b', genre:'lullaby',
     src:'독일 전래곡 Hänschen klein (19세기, 퍼블릭 도메인)',
-    data:seq(108, [
+    data:seq(130, rep([
       [67,1],[64,1],[64,2],[65,1],[62,1],[62,2],
       [60,1],[62,1],[64,1],[65,1],[67,1],[67,1],[67,2],
       [67,1],[64,1],[64,2],[65,1],[62,1],[62,2],
       [60,1],[64,1],[67,1],[67,1],[64,2],[64,2]
-    ]) },
+    ], 4)) },
   { id:'plane', title:'비행기', emoji:'✈️', color:'#ff9ecb', genre:'folk',
     src:'독일 전래곡 Lightly Row (퍼블릭 도메인)',
-    data:seq(112, [
+    data:seq(134, rep([
       [67,1],[64,1],[64,2],[65,1],[62,1],[62,2],
       [60,1],[62,1],[64,1],[65,1],[67,1],[67,1],[67,2],
       [64,1],[64,1],[64,1],[64,1],[62,1],[62,1],[62,2],
       [67,1],[67,1],[67,1],[64,1],[65,1],[62,1],[60,2]
-    ]) },
+    ], 4)) },
   { id:'jingle', title:'징글벨', emoji:'🔔', color:'#ff6b6b', genre:'festive',
     src:'J. Pierpont (1857, 퍼블릭 도메인)',
-    data:seq(120, [
+    data:seq(140, rep([
       [64,1],[64,1],[64,2],[64,1],[64,1],[64,2],
       [64,1],[67,1],[60,1],[62,1],[64,4],
       [65,1],[65,1],[65,1],[65,1],[65,1],[64,1],[64,1],[64,0.5],[64,0.5],
       [64,1],[62,1],[62,1],[64,1],[62,2],[67,2]
-    ]) },
+    ], 4)) },
   { id:'elise', title:'엘리제를 위하여', emoji:'🌸', color:'#c9a7ff', genre:'classical',
     src:'베토벤 (퍼블릭 도메인) — 도입부',
-    data:seq(96, [
+    data:seq(120, rep([
       [76,0.5],[75,0.5],[76,0.5],[75,0.5],[76,0.5],[71,0.5],[74,0.5],[72,0.5],[69,1.5],[0,0.5],
       [60,0.5],[64,0.5],[69,0.5],[71,1.5],[0,0.5],
       [64,0.5],[68,0.5],[71,0.5],[72,1.5],[0,0.5],
       [64,0.5],[76,0.5],[75,0.5],[76,0.5],[75,0.5],[76,0.5],[71,0.5],[74,0.5],[72,0.5],[69,1.5]
-    ]) },
+    ], 6)) },
   { id:'danube', title:'아름답고 푸른 도나우', emoji:'💃', color:'#8fd0ff', genre:'waltz',
     src:'요한 슈트라우스 2세 (1866, 퍼블릭 도메인)',
-    data:seq(160, [
+    data:seq(176, rep([
       [62,1],[66,1],[69,1],[69,2],[69,1],[66,2],[0,1],
       [62,1],[66,1],[69,1],[74,2],[74,1],[69,2],[0,1],
       [71,1],[69,1],[66,1],[66,1],[64,1],[62,1],[66,3],
       [62,1],[66,1],[69,1],[69,3]
-    ]) },
+    ], 5)) },
   { id:'canon', title:'캐논', emoji:'🎻', color:'#a7e0c8', genre:'classical',
     src:'파헬벨 (17세기, 퍼블릭 도메인)',
-    data:seq(100, [
+    data:seq(126, rep([
       [66,2],[64,2],[62,2],[61,2],
       [59,2],[57,2],[59,2],[61,2],
       [62,2],[61,2],[62,1],[57,1],[59,1],[61,1],
       [62,2],[57,2],[59,2],[61,2],[62,4]
-    ]) },
+    ], 3)) },
   { id:'susanna', title:'오 수재너', emoji:'🪕', color:'#ffcf6b', genre:'folk',
     src:'스티븐 포스터 (1848, 퍼블릭 도메인)',
-    data:seq(132, [
+    data:seq(150, rep([
       [60,0.5],[62,0.5],[64,1],[64,1],[67,1],[67,1],
       [69,1],[67,1],[64,1],[60,1],[62,1],[64,1],[62,0.5],[60,0.5],[62,2],
       [60,0.5],[62,0.5],[64,1],[64,1],[67,1],[67,1],
       [69,1],[67,1],[64,1],[60,1],[62,1],[62,1],[64,1],[60,2],
       [65,1],[65,1],[69,1],[69,1],[67,1],[64,1],[62,1],
       [60,0.5],[62,0.5],[64,1],[64,1],[62,1],[62,1],[64,1],[60,2]
-    ]) },
+    ], 3)) },
   { id:'saints', title:'성자의 행진', emoji:'🎷', color:'#ffb15c', genre:'jazz',
     src:'미국 전통 가스펠 (퍼블릭 도메인)',
-    data:seq(120, [
+    data:seq(144, rep([
       [60,1],[64,1],[65,1],[67,2],[0,1],
       [60,1],[64,1],[65,1],[67,2],[0,1],
       [60,1],[64,1],[65,1],[67,1],[64,1],[60,1],[64,1],[62,2],[0,1],
       [64,1],[64,1],[62,1],[60,1],[60,1],[64,1],[67,1],[67,1],[65,1],[64,1],[65,1],[67,1],[64,1],[60,2]
-    ]) },
+    ], 3)) },
   { id:'birthday', title:'생일 축하', emoji:'🎂', color:'#ff8fb0', genre:'festive',
     src:'2016년 미국 법원 판결로 퍼블릭 도메인',
-    data:seq(112, [
+    data:seq(132, rep([
       [67,0.75],[67,0.25],[69,1],[67,1],[72,1],[71,2],
       [67,0.75],[67,0.25],[69,1],[67,1],[74,1],[72,2],
       [67,0.75],[67,0.25],[79,1],[76,1],[72,1],[71,1],[69,1],
       [77,0.75],[77,0.25],[76,1],[72,1],[74,1],[72,2]
-    ]) },
+    ], 6)) },
   { id:'macdonald', title:'울려 퍼지는 농장', emoji:'🐮', color:'#9be07e', genre:'folk',
     src:'Old MacDonald / 미국 전통 동요 (퍼블릭 도메인)',
-    data:seq(120, [
+    data:seq(144, rep([
       [60,1],[60,1],[60,1],[67,1],[69,1],[69,1],[67,2],
       [64,1],[64,1],[62,1],[62,1],[60,2],[0,1],
       [67,1],[67,1],[60,1],[60,1],[60,1],[67,1],[69,1],[69,1],[67,2],
       [64,1],[64,1],[62,1],[62,1],[60,2]
-    ]) }
+    ], 4)) }
 ];
 
 /* 장르 -> 파트너 댄스 스타일 매핑 */
@@ -280,10 +300,10 @@ var GENRE_LABEL = { waltz:'왈츠', classical:'클래식', lullaby:'자장가', 
    쉬움4 / 보통6 / 어려움8 / 전문가10. 아이패드 가로에서 최소 터치폭 확보 위해
    전문가를 10으로 상한(≈100px/레인 @1024px). 쉬움은 넓고 관대. */
 var DIFFS = [
-  { id:'easy',   name:'쉬움',   color:'#7ee081', lanes:4,  lead:2.3,  density:'sparse', perfect:0.17, good:0.36, star:'🌱' },
-  { id:'normal', name:'보통',   color:'#7ec8ff', lanes:6,  lead:1.9,  density:'half',   perfect:0.13, good:0.28, star:'🙂' },
-  { id:'hard',   name:'어려움', color:'#ffb347', lanes:8,  lead:1.55, density:'most',   perfect:0.10, good:0.22, star:'🔥' },
-  { id:'expert', name:'전문가', color:'#ff6b8b', lanes:10, lead:1.28, density:'full',   perfect:0.08, good:0.18, star:'👑' }
+  { id:'easy',   name:'쉬움',   color:'#7ee081', lanes:4,  lead:1.75, density:'sparse', perfect:0.17, good:0.36, star:'🌱' },
+  { id:'normal', name:'보통',   color:'#7ec8ff', lanes:6,  lead:1.40, density:'half',   perfect:0.13, good:0.28, star:'🙂' },
+  { id:'hard',   name:'어려움', color:'#ffb347', lanes:8,  lead:1.12, density:'most',   perfect:0.10, good:0.22, star:'🔥' },
+  { id:'expert', name:'전문가', color:'#ff6b8b', lanes:10, lead:0.92, density:'full',   perfect:0.08, good:0.18, star:'👑' }
 ];
 
 /* ===================== 게임 상태 ===================== */
@@ -515,7 +535,7 @@ function render(dt){
   else if (GAME.scene==='result') renderResult();
   drawVersion();
 }
-var VERSION='v4';
+var VERSION='v5';
 function drawVersion(){
   try { ctx.save(); ctx.globalAlpha=0.5; ctx.fillStyle=UI.ink3;
     ctx.font='700 12px '+FONT; ctx.textAlign='left'; ctx.textBaseline='bottom';
@@ -995,7 +1015,7 @@ document.addEventListener('keydown', function(e){
   var k=e.key.toLowerCase();
   if (k in keyMap && GAME.scene==='game'){ var lane=keyMap[k]; if(lane<laneCount()){ keyPressAnim[lane]=1; pressLane(lane); } }
 });
-try { console.info('piano rhythm game v4 (visual polish, audio-decoupled)'); } catch(e){}
+try { console.info('piano rhythm game v5 (faster, longer, richer audio; audio-decoupled)'); } catch(e){}
 try { resize(); } catch(e){}
 requestAnimationFrame(tick);
 window.addEventListener('touchend', function(){ AudioEngine.unlock(); });
