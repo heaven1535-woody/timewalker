@@ -14,14 +14,14 @@
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none; }
   html, body {
     width:100%; height:100%; overflow:hidden; position:fixed;
-    background:#2c1f5a; touch-action:none; overscroll-behavior:none;
+    background:#0a0714; touch-action:none; overscroll-behavior:none;
     font-family:"Apple SD Gothic Neo","Segoe UI Rounded","Segoe UI",system-ui,-apple-system,"Malgun Gothic",sans-serif;
   }
   #game { position:fixed; inset:0; }
   canvas { display:block; width:100%; height:100%; touch-action:none; }
   #rotate {
     position:fixed; inset:0; z-index:9999; display:none;
-    background:linear-gradient(160deg,#4b2f8f,#241a4d);
+    background:linear-gradient(160deg,#14082e,#07060f);
     color:#fff; align-items:center; justify-content:center; text-align:center;
     padding:calc(24px + env(safe-area-inset-top)) 24px;
   }
@@ -87,10 +87,8 @@ window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', function(){ setTimeout(resize, 200); });
 var KB = {};
 function layout() {
-  var kbH = Math.max(110, Math.min(H * 0.30, 200));
-  KB.top = H - kbH;
-  KB.height = kbH;
-  KB.judgeY = KB.top - 6;
+  KB.judgeY = Math.round(H * 0.80);   // v8: 히트 바(판정 라인). 건반 제거, 레인형 레이아웃
+  KB.top = KB.judgeY;                 // (구 호환용, 미사용)
 }
 function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
 var mclock = 0;                 // rAF 기반 마스터 타임라인(초) — 오디오와 무관
@@ -100,7 +98,7 @@ function rnd(a,b){ return a+Math.random()*(b-a); }
 
 /* ===================== 오디오(Web Audio 자체 합성) ===================== */
 var AudioEngine = {
-  ctx:null, master:null, ok:false, muted:false, unlocked:false,
+  ctx:null, master:null, bus:null, drumBus:null, noise:null, ok:false, muted:false, unlocked:false, vol:1.0,
   init:function () {
     if (this.ctx) return;
     try {
@@ -108,20 +106,22 @@ var AudioEngine = {
       if (!AC) { this.ok=false; return; }
       var ac = new AC();
       this.ctx = ac;
-      this.master = ac.createGain();
-      this.master.gain.value = 0.82;
+      this.master = ac.createGain(); this.master.gain.value = this.vol;
+      try { var comp=ac.createDynamicsCompressor(); comp.threshold.value=-10; comp.knee.value=24; comp.ratio.value=4; comp.attack.value=0.003; comp.release.value=0.2; this.master.connect(comp); comp.connect(ac.destination); }
+      catch(e){ this.master.connect(ac.destination); }
       this.bus = this.master;
       try {
-        var bus = ac.createGain();
-        var tone = ac.createBiquadFilter(); tone.type='lowpass'; tone.frequency.value=6800; tone.Q.value=0.4;
+        var bus = ac.createGain(); bus.gain.value=0.95;
+        var tone = ac.createBiquadFilter(); tone.type='lowpass'; tone.frequency.value=7400; tone.Q.value=0.4;
         bus.connect(tone); tone.connect(this.master);
-        var delay = ac.createDelay(1.0); delay.delayTime.value=0.17;
-        var fb = ac.createGain(); fb.gain.value=0.24;
-        var wet = ac.createGain(); wet.gain.value=0.14;
+        var delay = ac.createDelay(1.0); delay.delayTime.value=0.19;
+        var fb = ac.createGain(); fb.gain.value=0.2;
+        var wet = ac.createGain(); wet.gain.value=0.1;
         bus.connect(delay); delay.connect(fb); fb.connect(delay); delay.connect(wet); wet.connect(this.master);
         this.bus = bus;
       } catch(e){ this.bus = this.master; }
-      this.master.connect(ac.destination);
+      try { this.drumBus = ac.createGain(); this.drumBus.gain.value=1.0; this.drumBus.connect(this.master); } catch(e){ this.drumBus = this.master; }
+      try { var nb=ac.createBuffer(1, Math.floor(ac.sampleRate*0.4), ac.sampleRate); var d=nb.getChannelData(0); for(var i=0;i<d.length;i++) d[i]=Math.random()*2-1; this.noise=nb; } catch(e){ this.noise=null; }
       this.ok = true;
       try { if (navigator.audioSession) { navigator.audioSession.type = 'playback'; } } catch(e){}
     } catch(e){ this.ok=false; }
@@ -132,66 +132,83 @@ var AudioEngine = {
       if (!this.ok) return;
       if (this.ctx.state === 'suspended') { try { this.ctx.resume(); } catch(e){} }
       if (!this.unlocked) {
-        try {
-          var b = this.ctx.createBuffer(1, 1, 22050);
-          var src = this.ctx.createBufferSource();
-          src.buffer = b; src.connect(this.ctx.destination); src.start(0);
-          this.unlocked = true;
-        } catch(e){}
+        try { var b=this.ctx.createBuffer(1,1,22050); var src=this.ctx.createBufferSource(); src.buffer=b; src.connect(this.ctx.destination); src.start(0); this.unlocked=true; } catch(e){}
       }
     } catch(e){}
   },
   now:function(){ return this.ok ? this.ctx.currentTime : 0; },
-  setMuted:function (m) {
-    this.muted = m;
-    if (this.ok) { try { this.master.gain.setTargetAtTime(m?0:0.82, this.ctx.currentTime, 0.02); } catch(e){} }
-  },
+  setMuted:function (m) { this.muted=m; if(this.ok){ try{ this.master.gain.setTargetAtTime(m?0:this.vol, this.ctx.currentTime, 0.02);}catch(e){} } },
+  _noiseSrc:function(){ var ac=this.ctx; var s=ac.createBufferSource(); s.buffer=this.noise; s.loop=true; return s; },
   note:function (midi, time, dur, vol) {
     if (!this.ok || this.muted) return;
     try {
-      var ac = this.ctx, f = 440 * Math.pow(2, (midi-69)/12), t = time, v = (vol==null?0.5:vol);
-      var out = this.bus || this.master;
-      var g = ac.createGain(); g.connect(out);
-      var atk=0.010, dec=0.13, sus=Math.max(v*0.55,0.0002), endT=t+Math.max(dur,0.22);
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(v, t+atk);
-      g.gain.exponentialRampToValueAtTime(sus, t+atk+dec);
-      g.gain.exponentialRampToValueAtTime(0.0001, endT);
-      var parts=[[1,1.0,'triangle'],[2,0.3,'sine'],[3,0.12,'sine']];
-      for (var i=0;i<parts.length;i++){
-        var o=ac.createOscillator(); o.type=parts[i][2]; o.frequency.value=f*parts[i][0];
-        var pg=ac.createGain(); pg.gain.value=parts[i][1]; o.connect(pg); pg.connect(g);
-        o.start(t); o.stop(endT+0.08);
-      }
-      var od=ac.createOscillator(); od.type='triangle'; od.frequency.value=f; try { od.detune.value=6; } catch(e){}
-      var odg=ac.createGain(); odg.gain.value=0.2; od.connect(odg); odg.connect(g);
-      od.start(t); od.stop(endT+0.08);
+      var ac=this.ctx, f=440*Math.pow(2,(midi-69)/12), t=time, v=(vol==null?0.6:vol);
+      var out=this.bus||this.master; var g=ac.createGain(); g.connect(out);
+      var atk=0.008, dec=0.12, sus=Math.max(v*0.55,0.0002), endT=t+Math.max(dur,0.22);
+      g.gain.setValueAtTime(0.0001,t);
+      g.gain.exponentialRampToValueAtTime(v,t+atk);
+      g.gain.exponentialRampToValueAtTime(sus,t+atk+dec);
+      g.gain.exponentialRampToValueAtTime(0.0001,endT);
+      var parts=[[1,1.0,'triangle'],[2,0.34,'sine'],[3,0.14,'sine'],[4,0.06,'sine']];
+      for (var i=0;i<parts.length;i++){ var o=ac.createOscillator(); o.type=parts[i][2]; o.frequency.value=f*parts[i][0]; var pg=ac.createGain(); pg.gain.value=parts[i][1]; o.connect(pg); pg.connect(g); o.start(t); o.stop(endT+0.08); }
+      var od=ac.createOscillator(); od.type='triangle'; od.frequency.value=f; try{ od.detune.value=6; }catch(e){} var odg=ac.createGain(); odg.gain.value=0.2; od.connect(odg); odg.connect(g); od.start(t); od.stop(endT+0.08);
     } catch(e){}
   },
-  ding:function (hi) {
+  bass:function (midi, time, dur, vol) {
     if (!this.ok || this.muted) return;
     try {
-      var ac=this.ctx, t=ac.currentTime;
-      var g=ac.createGain(); g.connect(this.master);
-      g.gain.setValueAtTime(0.0001,t);
-      g.gain.exponentialRampToValueAtTime(0.32,t+0.005);
-      g.gain.exponentialRampToValueAtTime(0.0001,t+0.18);
-      var o=ac.createOscillator(); o.type='sine'; o.frequency.value=hi?1568:1046;
-      o.connect(g); o.start(t); o.stop(t+0.2);
+      var ac=this.ctx, f=440*Math.pow(2,(midi-69)/12), t=time, v=(vol==null?0.5:vol);
+      var g=ac.createGain(); var lp=ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=500; g.connect(lp); lp.connect(this.master);
+      var endT=t+Math.max(dur,0.18);
+      g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(v,t+0.012); g.gain.exponentialRampToValueAtTime(v*0.5,t+dur*0.5); g.gain.exponentialRampToValueAtTime(0.0001,endT);
+      var o1=ac.createOscillator(); o1.type='sawtooth'; o1.frequency.value=f; o1.connect(g);
+      var o2=ac.createOscillator(); o2.type='sine'; o2.frequency.value=f/2; var g2=ac.createGain(); g2.gain.value=0.7; o2.connect(g2); g2.connect(g);
+      o1.start(t); o2.start(t); o1.stop(endT+0.05); o2.stop(endT+0.05);
     } catch(e){}
   },
-  buzz:function () {
+  chord:function (root, time, dur, vol) {
     if (!this.ok || this.muted) return;
     try {
-      var ac=this.ctx, t=ac.currentTime;
-      var g=ac.createGain(); g.connect(this.master);
-      g.gain.setValueAtTime(0.0001,t);
-      g.gain.exponentialRampToValueAtTime(0.22,t+0.01);
-      g.gain.exponentialRampToValueAtTime(0.0001,t+0.22);
-      var o=ac.createOscillator(); o.type='sawtooth';
-      o.frequency.setValueAtTime(300,t);
-      o.frequency.exponentialRampToValueAtTime(120,t+0.2);
-      o.connect(g); o.start(t); o.stop(t+0.24);
+      var ac=this.ctx, t=time, v=(vol==null?0.1:vol), out=this.bus||this.master;
+      var g=ac.createGain(); g.connect(out); var endT=t+Math.max(dur,0.4);
+      g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(v,t+0.09); g.gain.exponentialRampToValueAtTime(v*0.55,t+dur*0.5); g.gain.exponentialRampToValueAtTime(0.0001,endT);
+      var ivs=[0,7,12]; for (var i=0;i<ivs.length;i++){ var f=440*Math.pow(2,(root+ivs[i]-69)/12); var o=ac.createOscillator(); o.type='triangle'; o.frequency.value=f; var og=ac.createGain(); og.gain.value=0.6; o.connect(og); og.connect(g); o.start(t); o.stop(endT+0.05); }
+    } catch(e){}
+  },
+  kick:function (time, vol) {
+    if (!this.ok || this.muted) return;
+    try { var ac=this.ctx, t=time, v=(vol==null?0.9:vol), out=this.drumBus||this.master;
+      var g=ac.createGain(); g.connect(out); g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.15);
+      var o=ac.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(150,t); o.frequency.exponentialRampToValueAtTime(48,t+0.12); o.connect(g); o.start(t); o.stop(t+0.17);
+    } catch(e){}
+  },
+  snare:function (time, vol) {
+    if (!this.ok || this.muted) return;
+    try { var ac=this.ctx, t=time, v=(vol==null?0.5:vol), out=this.drumBus||this.master;
+      if (this.noise){ var sN=this._noiseSrc(); var hp=ac.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=1200; var ng=ac.createGain(); ng.gain.setValueAtTime(v,t); ng.gain.exponentialRampToValueAtTime(0.0001,t+0.14); sN.connect(hp); hp.connect(ng); ng.connect(out); sN.start(t); sN.stop(t+0.16); }
+      var g=ac.createGain(); g.connect(out); g.gain.setValueAtTime(v*0.5,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.1); var o=ac.createOscillator(); o.type='triangle'; o.frequency.value=190; o.connect(g); o.start(t); o.stop(t+0.12);
+    } catch(e){}
+  },
+  hat:function (time, vol) {
+    if (!this.ok || this.muted || !this.noise) return;
+    try { var ac=this.ctx, t=time, v=(vol==null?0.2:vol), out=this.drumBus||this.master;
+      var sN=this._noiseSrc(); var hp=ac.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=7000; var g=ac.createGain(); g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.05); sN.connect(hp); hp.connect(g); g.connect(out); sN.start(t); sN.stop(t+0.07);
+    } catch(e){}
+  },
+  hit:function (perfect) {
+    if (!this.ok || this.muted) return;
+    try { var ac=this.ctx, t=ac.currentTime, out=this.drumBus||this.master;
+      if (this.noise){ var sN=this._noiseSrc(); var hp=ac.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=perfect?3000:2000; var ng=ac.createGain(); ng.gain.setValueAtTime(perfect?0.5:0.32,t); ng.gain.exponentialRampToValueAtTime(0.0001,t+0.06); sN.connect(hp); hp.connect(ng); ng.connect(out); sN.start(t); sN.stop(t+0.08); }
+      var g=ac.createGain(); g.connect(out); g.gain.setValueAtTime(perfect?0.42:0.28,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.14);
+      var o=ac.createOscillator(); o.type='square'; o.frequency.setValueAtTime(perfect?1250:920,t); o.frequency.exponentialRampToValueAtTime(perfect?620:460,t+0.1); o.connect(g); o.start(t); o.stop(t+0.16);
+    } catch(e){}
+  },
+  miss:function () {
+    if (!this.ok || this.muted) return;
+    try { var ac=this.ctx, t=ac.currentTime, out=this.master;
+      var g=ac.createGain(); g.connect(out); g.gain.setValueAtTime(0.3,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.2);
+      var o=ac.createOscillator(); o.type='sine'; o.frequency.setValueAtTime(160,t); o.frequency.exponentialRampToValueAtTime(68,t+0.18); o.connect(g); o.start(t); o.stop(t+0.22);
+      if (this.noise){ var sN=this._noiseSrc(); var lp=ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=800; var ng=ac.createGain(); ng.gain.setValueAtTime(0.14,t); ng.gain.exponentialRampToValueAtTime(0.0001,t+0.12); sN.connect(lp); lp.connect(ng); ng.connect(out); sN.start(t); sN.stop(t+0.14); }
     } catch(e){}
   }
 };
@@ -293,9 +310,40 @@ var GAME = {
   tiles:[], particles:[], songStartT:0, spawnIdx:0, scheduleIdx:0,
   score:0, combo:0, maxCombo:0, cntPerfect:0, cntGood:0, cntMiss:0, total:0,
   ended:false, endTimer:0, tileEvents:[],
+  beatIdx:0, totalBeats:0, beatMidi:[], meter:4, shake:0, redFlash:0,
   cat:{ mood:'idle', moodT:0, beat:0, dizzy:0 },
   flash:[], hitText:[]
 };
+
+/* v8: 곡별 박자(3/4 등) + 반주(베이스/드럼) 사전 계산 */
+var METER = { danube:3, birthday:3 };
+function precompAccompaniment(){
+  var data=GAME.song.data, ev=data.events, spb=data.spb;
+  GAME.meter = METER[GAME.song.id] || 4;
+  GAME.totalBeats = Math.ceil(data.length/spb) + 1;
+  GAME.beatMidi = [];
+  var idx=0;
+  for (var b=0;b<GAME.totalBeats;b++){
+    var bt=b*spb;
+    while (idx<ev.length && ev[idx].t <= bt+1e-6) idx++;
+    GAME.beatMidi.push(idx>0 ? ev[idx-1].midi : (ev.length?ev[0].midi:60));
+  }
+}
+function bassAt(bi){ var a=GAME.beatMidi; if(!a||!a.length) return 36; return a[Math.min(bi,a.length-1)]-24; }
+/* 한 박자에 대한 드럼/베이스/코드 스케줄 (장르/박자별 패턴) */
+function scheduleBeat(bi, at, spb, meter, genre){
+  var A=AudioEngine, m=bi%meter, soft=(genre==='lullaby'), dv=soft?0.5:1.0;
+  if (meter===3){
+    if (m===0){ A.kick(at,0.9*dv); A.bass(bassAt(bi),at,spb*1.2,0.5*dv); A.chord(bassAt(bi)+24,at,spb*2.6,soft?0.07:0.1); }
+    else { A.snare(at,0.4*dv); }
+    A.hat(at,(m===0?0.24:0.18)*dv);
+  } else {
+    if (m===0||m===2){ A.kick(at,0.9*dv); A.bass(bassAt(bi),at,spb*1.05,0.5*dv); if(m===0) A.chord(bassAt(bi)+24,at,spb*3.0,soft?0.07:0.1); }
+    if (m===1||m===3){ A.snare(at,0.45*dv); }
+    A.hat(at,0.2*dv);
+    if (!soft) A.hat(at+spb*0.5,0.13*dv);
+  }
+}
 
 function midiToLane(midi, minM, maxM, lanes) {
   if (maxM<=minM) return Math.floor(lanes/2);
@@ -328,6 +376,8 @@ function startGame(song, diff, demo) {
   GAME.cat.mood='idle'; GAME.cat.dizzy=0; GAME.cat.beat=0; GAME.cat.moodT=0;
   buildTiles();
   GAME.total = GAME.tileEvents.length;
+  precompAccompaniment();
+  GAME.beatIdx=0; GAME.shake=0; GAME.redFlash=0;
   AudioEngine.unlock();
   var lead = GAME.diff.lead;
   GAME.songStartT = gnow() + Math.max(lead,1.0) + 0.3;  // 오디오와 무관
@@ -366,7 +416,7 @@ function pressLane(lane) {
 function registerHit(kind, tile) {
   laneFlash(tile.lane, kind==='perfect'?'#fff2a8':'#bfe9ff', 0.6);
   spawnBurst(tile.lane, kind==='perfect');
-  AudioEngine.ding(kind==='perfect');
+  AudioEngine.hit(kind==='perfect');
   if (kind==='perfect'){ GAME.cntPerfect++; GAME.score+=100; } else { GAME.cntGood++; GAME.score+=60; }
   GAME.combo++; if (GAME.combo>GAME.maxCombo) GAME.maxCombo=GAME.combo;
   GAME.score += Math.min(GAME.combo,50);
@@ -376,7 +426,7 @@ function registerHit(kind, tile) {
 function registerMiss(tile) {
   GAME.cntMiss++; GAME.combo=0;
   laneFlash(tile.lane,'#ff5a7a',0.5);
-  AudioEngine.buzz();
+  AudioEngine.miss(); GAME.shake=0.3; GAME.redFlash=0.4;
   pushHitText('MISS', tile.lane, '#ff7a95');
   catMood('trip');
 }
@@ -385,19 +435,22 @@ function catMood(m){ GAME.cat.mood=m; GAME.cat.moodT=0; if(m==='trip') GAME.cat.
 function laneFlash(lane,color,life){ GAME.flash.push({lane:lane,color:color,life:life,max:life}); }
 function pushHitText(txt,lane,color){ GAME.hitText.push({txt:txt,x:laneCenterX(lane),y:KB.judgeY-40,color:color,life:0.7}); }
 function spawnBurst(lane, big){
-  var x=laneCenterX(lane), y=KB.judgeY, n=big?14:8;
-  if (GAME.particles.length>160) n=Math.min(n,4);
+  var x=laneCenterX(lane), y=KB.judgeY;
+  var boost=Math.min(1+GAME.combo/22, 2.3);
+  var n=Math.round((big?16:9)*boost);
+  if (GAME.particles.length>220) n=Math.min(n,5);
+  var col=NEON[lane % NEON.length];
   for (var i=0;i<n;i++){
-    var a=rnd(0,Math.PI*2), sp=rnd(60,big?260:170);
-    GAME.particles.push({ x:x,y:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-rnd(20,90),
-      life:rnd(0.4,0.8),max:0.8,size:rnd(3,big?7:5),
-      color:['#ffd54a','#ff8fc7','#7ee0ff','#b6f56b','#fff'][(Math.random()*5)|0] });
+    var a=rnd(0,Math.PI*2), sp=rnd(90,(big?380:240)*boost);
+    GAME.particles.push({ x:x,y:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-rnd(40,140),
+      life:rnd(0.4,0.85),max:0.85,size:rnd(3,(big?8:6)),
+      color:(Math.random()<0.55?col:'#ffffff') });
   }
 }
 function laneCount(){ return GAME.diff ? GAME.diff.lanes : 7; }
 function laneW(){ return W / laneCount(); }
 function laneCenterX(lane){ return laneW()*(lane+0.5); }
-function topPlayY(){ return H*0.30; }
+function topPlayY(){ return H*0.13; }
 
 /* ===================== 루프 ===================== */
 var lastTime = 0;
@@ -421,10 +474,19 @@ function updateGame(dt) {
       var ev=song.events[GAME.scheduleIdx];
       var at=GAME.songStartT+ev.t;
       if (at > now+lookahead) break;
-      AudioEngine.note(ev.midi, AudioEngine.now()+Math.max(0, at-now), ev.dur, 0.5);
+      AudioEngine.note(ev.midi, AudioEngine.now()+Math.max(0, at-now), ev.dur, 0.62);
       GAME.scheduleIdx++;
     }
   } catch(e){ GAME.scheduleIdx = song.events.length; }
+  try {
+    var spb=song.spb, meter=GAME.meter||4;
+    while (GAME.beatIdx < GAME.totalBeats) {
+      var bt=GAME.songStartT + GAME.beatIdx*spb;
+      if (bt > now+lookahead) break;
+      scheduleBeat(GAME.beatIdx, AudioEngine.now()+Math.max(0, bt-now), spb, meter, GAME.song.genre);
+      GAME.beatIdx++;
+    }
+  } catch(e){ GAME.beatIdx = GAME.totalBeats; }
   while (GAME.spawnIdx < GAME.tileEvents.length) {
     var te=GAME.tileEvents[GAME.spawnIdx];
     var hitAt=GAME.songStartT+te.t;
@@ -439,7 +501,7 @@ function updateGame(dt) {
     tl.y=judgeY-(tl.absHit-now)*pxPerSec;
     if (GAME.demo && !tl.judged && now>=tl.absHit){
       tl.judged=true; tl.hit=true;
-      laneFlash(tl.lane,'#fff2a8',0.6); spawnBurst(tl.lane,true); AudioEngine.ding(true);
+      laneFlash(tl.lane,'#fff2a8',0.6); spawnBurst(tl.lane,true); AudioEngine.hit(true);
       GAME.cntPerfect++; GAME.score+=100; GAME.combo++;
       if(GAME.combo>GAME.maxCombo)GAME.maxCombo=GAME.combo;
       pushHitText('PERFECT!',tl.lane,'#ffe06a'); catMood(GAME.combo>=8?'super':'happy');
@@ -485,28 +547,33 @@ var UI={ ink:'#ffffff', ink2:'#e4dcff', ink3:'#b3a3e6',
   card:'rgba(255,255,255,0.10)', cardBd:'rgba(255,255,255,0.18)',
   panel:'rgba(28,18,58,0.55)', shadow:'rgba(20,10,45,0.32)' };
 var LANE_COLORS=['#ff90a9','#ffb673','#ffe08a','#a7e88c','#7fd6ff','#9db4ff','#c79bff','#ff9ed6','#7fe6cf','#ffc59b'];
+var NEON=['#ff3d7f','#ff8f3d','#ffe23d','#4dff88','#3dd7ff','#6a7bff','#b45bff','#ff5bc0','#3dffcf','#ff6b5b'];
 var SONG_ACCENTS=['#ffd36b','#7fd6ff','#a7e88c','#ff9ed6','#ff90a9','#c79bff','#8fd0ff','#7fe6cf','#ffb673','#ffe08a','#ff9ed6','#a7e88c'];
 var DIFF_COLORS=['#8fe39a','#7fc8ff','#ffb35c','#ff7d9e'];
 var pressFx={tag:null,t:-9};
 function softRect(x,y,w,h,r,fill){ ctx.save(); ctx.fillStyle=UI.shadow; rr(x,y+4,w,h,r); ctx.fill(); ctx.restore(); ctx.fillStyle=fill; rr(x,y,w,h,r); ctx.fill(); }
 
 function render(dt){
-  var g=ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,'#4b2f8f'); g.addColorStop(0.5,'#3a2570'); g.addColorStop(1,'#241a4d');
-  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  var sh=GAME.shake||0, ox=0, oy=0;
+  if (sh>0){ ox=(Math.random()*2-1)*sh*14; oy=(Math.random()*2-1)*sh*10; GAME.shake=Math.max(0, sh-dt*1.8); }
   ctx.save();
-  var b1=ctx.createRadialGradient(W*0.2,H*0.16,0,W*0.2,H*0.16,W*0.42);
-  b1.addColorStop(0,'rgba(255,150,210,0.10)'); b1.addColorStop(1,'rgba(255,150,210,0)');
-  ctx.fillStyle=b1; ctx.fillRect(0,0,W,H);
-  var b2=ctx.createRadialGradient(W*0.85,H*0.2,0,W*0.85,H*0.2,W*0.42);
-  b2.addColorStop(0,'rgba(130,200,255,0.10)'); b2.addColorStop(1,'rgba(130,200,255,0)');
-  ctx.fillStyle=b2; ctx.fillRect(0,0,W,H);
+  if (ox||oy) ctx.translate(ox,oy);
+  var g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#141026'); g.addColorStop(0.5,'#0a0818'); g.addColorStop(1,'#070510');
+  ctx.fillStyle=g; ctx.fillRect(-24,-24,W+48,H+48);
+  ctx.save();
+  var b1=ctx.createRadialGradient(W*0.2,H*0.1,0,W*0.2,H*0.1,W*0.5);
+  b1.addColorStop(0,'rgba(120,60,200,0.16)'); b1.addColorStop(1,'rgba(120,60,200,0)');
+  ctx.fillStyle=b1; ctx.fillRect(-24,-24,W+48,H+48);
+  var b2=ctx.createRadialGradient(W*0.85,H*0.14,0,W*0.85,H*0.14,W*0.5);
+  b2.addColorStop(0,'rgba(40,150,230,0.14)'); b2.addColorStop(1,'rgba(40,150,230,0)');
+  ctx.fillStyle=b2; ctx.fillRect(-24,-24,W+48,H+48);
   ctx.restore();
   var tt=lastTime;
   ctx.save();
   for (var i=0;i<stars.length;i++){
     var s=stars[i], tw=0.5+0.5*Math.sin(tt*2+s.p);
-    ctx.globalAlpha=0.25+0.55*tw; ctx.fillStyle='#fff';
+    ctx.globalAlpha=0.12+0.4*tw; ctx.fillStyle='#cfe0ff';
     ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,6.28); ctx.fill();
   }
   ctx.restore();
@@ -514,9 +581,11 @@ function render(dt){
   else if (GAME.scene==='select') renderSelect();
   else if (GAME.scene==='game') renderGame(dt);
   else if (GAME.scene==='result') renderResult();
+  ctx.restore();
+  if (GAME.redFlash>0){ ctx.save(); ctx.globalAlpha=Math.min(GAME.redFlash,1)*0.4; ctx.fillStyle='#ff2b52'; ctx.fillRect(0,0,W,H); ctx.restore(); GAME.redFlash=Math.max(0,GAME.redFlash-dt*2.4); }
   drawVersion();
 }
-var VERSION='v7';
+var VERSION='v8';
 function drawVersion(){
   try { ctx.save(); ctx.globalAlpha=0.5; ctx.fillStyle=UI.ink3;
     ctx.font='700 12px '+FONT; ctx.textAlign='left'; ctx.textBaseline='bottom';
@@ -547,21 +616,25 @@ function button(x,y,w,h,label,tag,data,fill,textcol,fs){
 
 function renderTitle(){
   uiButtons=[];
-  var cx=W/2;
-  GAME.cat.beat = lastTime*1.1;
-  drawDancers(cx, H*0.33, Math.min(W,H)*0.10, 'waltz', 'super', GAME.cat.beat, 0);
+  var cx=W/2, t=lastTime;
+  for (var i=0;i<8;i++){
+    var col=NEON[i%NEON.length], lx=W*(0.07+i*0.12);
+    var ty=((t*130 + i*95) % (H+130)) - 60;
+    ctx.save(); ctx.globalAlpha=0.4; ctx.shadowColor=col; ctx.shadowBlur=16; ctx.fillStyle=col;
+    rr(lx-16, ty, 32, 44, 9); ctx.fill(); ctx.restore();
+  }
   ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-  ctx.save(); ctx.shadowColor='rgba(255,150,210,0.55)'; ctx.shadowBlur=18;
-  ctx.fillStyle=UI.gold; ctx.font='900 '+Math.round(Math.min(W*0.088,64))+'px '+FONT;
-  ctx.fillText('냥냥 피아노 타일', cx, H*0.575); ctx.restore();
-  ctx.fillStyle=UI.ink2; ctx.font='600 '+Math.round(Math.min(W*0.03,19))+'px '+FONT;
-  ctx.fillText('블록이 건반에 닿을 때 콕! 눌러요  🐱🐱', cx, H*0.64);
+  ctx.save(); ctx.shadowColor='rgba(80,200,255,0.8)'; ctx.shadowBlur=24;
+  ctx.fillStyle='#eef5ff'; ctx.font='900 '+Math.round(Math.min(W*0.092,68))+'px '+FONT;
+  ctx.fillText('네온 리듬 타일', cx, H*0.44); ctx.restore();
+  ctx.fillStyle=UI.ink2; ctx.font='700 '+Math.round(Math.min(W*0.03,19))+'px '+FONT;
+  ctx.fillText('선을 따라 내려오는 블록을 톡! 눌러요', cx, H*0.53);
   ctx.fillStyle=UI.ink3; ctx.font='500 '+Math.round(Math.min(W*0.023,14))+'px '+FONT;
-  ctx.fillText('🔊 화면을 한 번 탭하면 소리가 켜져요 · 무음 스위치를 꺼주세요', cx, H*0.675);
-  var bw=Math.min(W*0.42,320), bh=Math.min(H*0.125,68);
-  button(cx-bw/2, H*0.72, bw, bh, '▶  시작하기', 'go_select', null, UI.gold, UI.goldInk);
-  var bw2=Math.min(W*0.32,230), bh2=Math.min(H*0.095,52);
-  button(cx-bw2/2, H*0.72+bh+14, bw2, bh2, '👀 데모 보기', 'demo_select', null, UI.grape, '#ffffff');
+  ctx.fillText('🔊 화면을 한 번 탭하면 소리가 켜져요 · 무음 스위치를 꺼주세요', cx, H*0.585);
+  var bw=Math.min(W*0.42,320), bh=Math.min(H*0.13,70);
+  button(cx-bw/2, H*0.65, bw, bh, '▶  시작하기', 'go_select', null, UI.gold, UI.goldInk);
+  var bw2=Math.min(W*0.32,230), bh2=Math.min(H*0.1,54);
+  button(cx-bw2/2, H*0.65+bh+16, bw2, bh2, '👀 데모 보기', 'demo_select', null, UI.grape, '#ffffff');
   drawMuteButton();
 }
 
@@ -619,84 +692,79 @@ function renderSelect(){
 
 function renderGame(dt){
   uiButtons=[];
-  var lc=laneCount(), lw=laneW(), topY=topPlayY();
-  for (var l=0;l<lc;l++){
-    ctx.fillStyle=(l%2===0)?'rgba(255,255,255,0.03)':'rgba(0,0,0,0.06)';
-    ctx.fillRect(l*lw, topY, lw, KB.judgeY-topY);
-  }
-  ctx.save(); ctx.strokeStyle='rgba(255,255,255,0.09)'; ctx.lineWidth=1;
-  for (var i=1;i<lc;i++){ ctx.beginPath(); ctx.moveTo(i*lw,topY); ctx.lineTo(i*lw,KB.judgeY); ctx.stroke(); }
+  var lc=laneCount(), lw=laneW(), topY=topPlayY(), hy=KB.judgeY, now=gnow();
+  var spb=GAME.song.data.spb, beat=(now-GAME.songStartT)/spb, bp=beat-Math.floor(beat);
+  var pulse=Math.max(0,1-bp*3.2);
+  for (var l=0;l<lc;l++){ ctx.save(); ctx.globalAlpha=0.06; ctx.fillStyle=NEON[l%NEON.length]; ctx.fillRect(l*lw, topY, lw, H-topY); ctx.restore(); }
+  ctx.save(); ctx.lineWidth=1; ctx.strokeStyle='rgba(255,255,255,0.06)';
+  for (var i=1;i<lc;i++){ ctx.beginPath(); ctx.moveTo(i*lw,topY); ctx.lineTo(i*lw,H); ctx.stroke(); }
   ctx.restore();
-  drawDancers(W/2, H*0.145, Math.min(W,H)*0.082, GAME.song.genre, GAME.cat.mood, GAME.cat.beat, GAME.cat.dizzy);
+  ctx.save(); var hg=ctx.createLinearGradient(0,hy,0,H); hg.addColorStop(0,'rgba(120,180,255,0.10)'); hg.addColorStop(1,'rgba(120,180,255,0)'); ctx.fillStyle=hg; ctx.fillRect(0,hy,W,H-hy); ctx.restore();
   for (var f=0;f<GAME.flash.length;f++){
     var fl=GAME.flash[f], a=fl.life/fl.max;
-    ctx.save(); ctx.globalAlpha=a*0.7;
-    var grd=ctx.createLinearGradient(0,KB.judgeY-120,0,KB.judgeY);
-    grd.addColorStop(0,'rgba(255,255,255,0)'); grd.addColorStop(1,fl.color);
-    ctx.fillStyle=grd; ctx.fillRect(fl.lane*lw, KB.judgeY-120, lw, 120);
-    ctx.restore();
+    ctx.save(); ctx.globalAlpha=a*0.85;
+    var grd=ctx.createLinearGradient(0,hy-160,0,hy); grd.addColorStop(0,'rgba(255,255,255,0)'); grd.addColorStop(1,fl.color);
+    ctx.fillStyle=grd; ctx.fillRect(fl.lane*lw, hy-160, lw, 160); ctx.restore();
   }
   for (var t=0;t<GAME.tiles.length;t++){
     var tl=GAME.tiles[t];
-    if (tl.judged && tl.hit){ var af=clamp(1-(gnow()-tl.absHit)/0.3,0,1); ctx.globalAlpha=af*0.85; }
-    else if (tl.judged && tl.missed){ ctx.globalAlpha=0.3; }
+    if (tl.judged && tl.hit){ var af=clamp(1-(now-tl.absHit)/0.28,0,1); ctx.globalAlpha=af; }
+    else if (tl.judged && tl.missed){ ctx.globalAlpha=0.28; }
     else ctx.globalAlpha=1;
     drawTile(tl, lw); ctx.globalAlpha=1;
   }
-  ctx.save();
-  ctx.strokeStyle='rgba(255,255,255,0.7)'; ctx.lineWidth=3; ctx.setLineDash([9,7]); ctx.lineCap='round';
-  ctx.shadowColor='rgba(255,255,255,0.5)'; ctx.shadowBlur=8;
-  ctx.beginPath(); ctx.moveTo(6,KB.judgeY); ctx.lineTo(W-6,KB.judgeY); ctx.stroke();
-  ctx.restore();
-  drawKeyboard();
+  ctx.save(); ctx.strokeStyle='rgba(235,245,255,'+(0.55+0.35*pulse)+')'; ctx.lineWidth=3+2.5*pulse; ctx.lineCap='round';
+  ctx.shadowColor='rgba(150,210,255,0.85)'; ctx.shadowBlur=12+14*pulse;
+  ctx.beginPath(); ctx.moveTo(8,hy); ctx.lineTo(W-8,hy); ctx.stroke(); ctx.restore();
+  for (var l2=0;l2<lc;l2++){
+    var col=NEON[l2%NEON.length], cxp=laneCenterX(l2), fa=keyPressAnim[l2]||0;
+    var pw=lw*0.6, ph=Math.min(H*0.028,15);
+    ctx.save(); ctx.globalAlpha=0.45+0.55*fa; ctx.shadowColor=col; ctx.shadowBlur=10+22*fa; ctx.fillStyle=col;
+    rr(cxp-pw/2, hy-ph/2, pw, ph, ph/2); ctx.fill(); ctx.restore();
+    keyPressAnim[l2]=Math.max(0,(keyPressAnim[l2]||0)-dt*3);
+  }
   drawParticles();
   for (var h=0;h<GAME.hitText.length;h++){
-    var ht=GAME.hitText[h], hp=clamp(ht.life/0.7,0,1);
-    ctx.save(); ctx.globalAlpha=hp; ctx.shadowColor='rgba(0,0,0,0.35)'; ctx.shadowBlur=6;
-    ctx.fillStyle=ht.color; ctx.font='900 '+Math.round(Math.min(W*0.03,22)*(0.85+0.15*hp))+'px '+FONT;
-    ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(ht.txt, ht.x, ht.y); ctx.restore();
+    var ht=GAME.hitText[h], hpv=clamp(ht.life/0.7,0,1);
+    ctx.save(); ctx.globalAlpha=hpv; ctx.shadowColor=ht.color; ctx.shadowBlur=10;
+    ctx.fillStyle=ht.color; ctx.font='900 '+Math.round(Math.min(W*0.032,24)*(0.85+0.2*hpv))+'px '+FONT;
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(ht.txt, ht.x, ht.y); ctx.restore();
   }
-  // ===== HUD =====
   ctx.textBaseline='middle';
   var scoreTxt='점수 '+GAME.score;
-  ctx.font='800 '+Math.round(Math.min(W*0.028,20))+'px '+FONT;
-  var spw=ctx.measureText(scoreTxt).width+26, sph=Math.round(Math.min(H*0.07,38));
-  ctx.fillStyle=UI.panel; rr(12,10,spw,sph,sph/2); ctx.fill();
+  ctx.font='800 '+Math.round(Math.min(W*0.03,22))+'px '+FONT;
+  var spw=ctx.measureText(scoreTxt).width+26, sph=Math.round(Math.min(H*0.07,40));
+  ctx.fillStyle='rgba(10,8,24,0.6)'; rr(12,10,spw,sph,sph/2); ctx.fill();
   ctx.fillStyle='#fff'; ctx.textAlign='left'; ctx.fillText(scoreTxt, 24, 10+sph/2+1);
-  ctx.fillStyle=UI.ink3; ctx.font='600 '+Math.round(Math.min(W*0.02,14))+'px '+FONT;
-  ctx.textBaseline='alphabetic'; ctx.fillText(GENRE_LABEL[GAME.song.genre]+' · '+GAME.song.title, 16, 10+sph+16);
+  ctx.fillStyle=UI.ink3; ctx.font='600 '+Math.round(Math.min(W*0.02,14))+'px '+FONT; ctx.textBaseline='alphabetic';
+  ctx.fillText(GENRE_LABEL[GAME.song.genre]+' · '+GAME.song.title, 16, 10+sph+16);
   ctx.textBaseline='middle';
   if (GAME.combo>=2){
-    var cbt=GAME.combo+' COMBO';
-    ctx.font='900 '+Math.round(Math.min(W*0.032,24))+'px '+FONT;
-    var cpw=ctx.measureText(cbt).width+30, cph=Math.round(Math.min(H*0.075,40));
-    ctx.fillStyle='rgba(255,211,107,0.18)'; rr(W/2-cpw/2,8,cpw,cph,cph/2); ctx.fill();
-    ctx.fillStyle=UI.gold; ctx.textAlign='center'; ctx.fillText(cbt, W/2, 8+cph/2+1);
+    var cbt=GAME.combo+' COMBO', cs=Math.min(1+GAME.combo/60,1.4);
+    ctx.font='900 '+Math.round(Math.min(W*0.034,26)*cs)+'px '+FONT;
+    var cpw=ctx.measureText(cbt).width+30, cph=Math.round(Math.min(H*0.08,44));
+    ctx.save(); ctx.shadowColor='rgba(255,220,120,0.6)'; ctx.shadowBlur=8*cs;
+    ctx.fillStyle='rgba(255,211,107,0.14)'; rr(W/2-cpw/2,8,cpw,cph,cph/2); ctx.fill();
+    ctx.fillStyle='#ffe27a'; ctx.textAlign='center'; ctx.fillText(cbt, W/2, 8+cph/2+1); ctx.restore();
   }
-  var judged=GAME.cntPerfect+GAME.cntGood+GAME.cntMiss;
-  var prog=GAME.total?Math.round(judged/GAME.total*100):0;
-  var eb=Math.min(W*0.09,52);
-  var rx=W-eb*2-28;
+  var judged=GAME.cntPerfect+GAME.cntGood+GAME.cntMiss, prog=GAME.total?Math.round(judged/GAME.total*100):0;
+  var eb=Math.min(W*0.09,52), rx=W-eb*2-28;
   ctx.textAlign='right'; ctx.textBaseline='alphabetic';
-  ctx.fillStyle='#fff'; ctx.font='800 '+Math.round(Math.min(W*0.024,17))+'px '+FONT;
-  ctx.fillText('진행 '+prog+'%', rx, 24);
-  ctx.fillStyle=UI.ink3; ctx.font='600 '+Math.round(Math.min(W*0.02,14))+'px '+FONT;
-  ctx.fillText('정확도 '+Math.round(accuracy()*100)+'%', rx, 44);
-  if (GAME.demo){ ctx.textAlign='center'; ctx.fillStyle=UI.grape; ctx.font='800 '+Math.round(Math.min(W*0.024,16))+'px '+FONT; ctx.fillText('👀 데모', W/2, 8+Math.min(H*0.075,40)+18); }
-  button(W-eb-10-eb-8, 8, eb, eb, '⏹', 'quit_game', null, 'rgba(255,255,255,0.16)', '#fff', Math.round(eb*0.42));
+  ctx.fillStyle='#fff'; ctx.font='800 '+Math.round(Math.min(W*0.024,17))+'px '+FONT; ctx.fillText('진행 '+prog+'%', rx, 24);
+  ctx.fillStyle=UI.ink3; ctx.font='600 '+Math.round(Math.min(W*0.02,14))+'px '+FONT; ctx.fillText('정확도 '+Math.round(accuracy()*100)+'%', rx, 44);
+  if (GAME.demo){ ctx.textAlign='center'; ctx.fillStyle='#b48bff'; ctx.font='800 '+Math.round(Math.min(W*0.024,16))+'px '+FONT; ctx.fillText('👀 데모', W/2, 8+Math.min(H*0.08,44)+18); }
+  button(W-eb-10-eb-8, 8, eb, eb, '⏹', 'quit_game', null, 'rgba(255,255,255,0.14)', '#fff', Math.round(eb*0.42));
   drawMuteButton();
 }
 function drawTile(tl, lw){
-  var x=tl.lane*lw+4, w=lw-8, h=tl.h||46, y=tl.y-h;
-  var base=LANE_COLORS[tl.lane % LANE_COLORS.length];
+  var x=tl.lane*lw+3, w=lw-6, h=tl.h||46, y=tl.y-h;
+  var col=NEON[tl.lane % NEON.length];
   var g=ctx.createLinearGradient(0,y,0,y+h);
-  g.addColorStop(0,shade(base,1.12)); g.addColorStop(1,shade(base,0.82));
-  ctx.save(); ctx.shadowColor='rgba(20,10,45,0.30)'; ctx.shadowBlur=6; ctx.shadowOffsetY=3;
-  ctx.fillStyle=g; rr(x,y,w,h,13); ctx.fill(); ctx.restore();
-  ctx.fillStyle='rgba(255,255,255,0.45)'; rr(x+6,y+5,w-12,h*0.26,7); ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,0.92)'; ctx.font='800 '+Math.round(h*0.4)+'px '+FONT;
-  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('♪', x+w/2, y+h/2);
+  g.addColorStop(0, col); g.addColorStop(1, shade(col,0.62));
+  ctx.save(); ctx.shadowColor=col; ctx.shadowBlur=16;
+  ctx.fillStyle=g; rr(x,y,w,h,12); ctx.fill(); ctx.restore();
+  ctx.fillStyle='rgba(255,255,255,0.4)'; rr(x+5,y+4,w-10,h*0.28,6); ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,0.55)'; ctx.lineWidth=1.5; rr(x,y,w,h,12); ctx.stroke();
 }
 function shade(hex,f){
   var c=hex.replace('#',''); if(c.length===3)c=c[0]+c[0]+c[1]+c[1]+c[2]+c[2];
@@ -914,9 +982,7 @@ function renderResult(){
     ctx.save(); ctx.globalAlpha=on?1:0.28; ctx.font=Math.round(ssz*2*pop)+'px '+FONT; ctx.textBaseline='middle';
     ctx.fillText(on?'⭐':'☆', cx+(i-1)*sgap, sy); ctx.restore();
   }
-  GAME.cat.beat = lastTime*1.4;
-  var rgenre = GAME.song?GAME.song.genre:'festive';
-  drawDancers(cx, H*0.49, Math.min(W,H)*0.07, stars3>=1?rgenre:'bounce', stars3>=1?'super':'idle', GAME.cat.beat, stars3>=1?0:1);
+  /* v8: 춤추는 고양이 제거 */
   var pw=Math.min(W*0.62,580), ph=Math.min(H*0.16,96), px=cx-pw/2, py=H*0.6;
   softRect(px,py,pw,ph,18, UI.card);
   ctx.lineWidth=1.5; ctx.strokeStyle=UI.cardBd; rr(px,py,pw,ph,18); ctx.stroke();
@@ -963,7 +1029,7 @@ function handleDown(px,py){
   AudioEngine.unlock();
   var b=hitUI(px,py);
   if (b){ doButton(b); return; }
-  if (GAME.scene==='game' && py>=KB.top){
+  if (GAME.scene==='game' && py>=topPlayY()){
     var lane=clamp(Math.floor(px/laneW()),0,laneCount()-1);
     keyPressAnim[lane]=1; pressLane(lane);
   }
@@ -999,7 +1065,7 @@ document.addEventListener('keydown', function(e){
   var k=e.key.toLowerCase();
   if (k in keyMap && GAME.scene==='game'){ var lane=keyMap[k]; if(lane<laneCount()){ keyPressAnim[lane]=1; pressLane(lane); } }
 });
-try { console.info('piano rhythm game v7 (natural song development; audio-decoupled)'); } catch(e){}
+try { console.info('piano rhythm game v8 (lane redesign, neon, rich audio; audio-decoupled)'); } catch(e){}
 try { resize(); } catch(e){}
 requestAnimationFrame(tick);
 window.addEventListener('touchend', function(){ AudioEngine.unlock(); });
