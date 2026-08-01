@@ -30,10 +30,7 @@
   #rotate h2 { font-size:24px; margin:18px 0 8px; }
   #rotate p { font-size:16px; opacity:.85; line-height:1.5; }
   @keyframes tilt { 0%,100%{transform:rotate(-8deg)} 50%{transform:rotate(82deg)} }
-  @media (orientation:portrait) and (pointer:coarse) {
-    #rotate { display:flex; }
-    #game { display:none; }
-  }
+  /* v6: 세로에서는 하드 차단 대신 JS로 게임을 90도 회전해 가로로 채움 (#rotate 미사용) */
 </style>
 </head>
 <body>
@@ -51,10 +48,33 @@
 var canvas = document.getElementById('cv');
 var ctx = canvas.getContext('2d');
 var W = 0, H = 0, DPR = 1;
+var ROT = 0;          // v6: 0=가로 그대로, 90=세로일 때 게임을 시계방향 90도 회전
+var gameEl = null;
 function resize() {
+  if (!gameEl) { try { gameEl = document.getElementById('game'); } catch(e){} }
   DPR = Math.min(window.devicePixelRatio || 1, 2.5);
-  W = Math.floor(window.innerWidth);
-  H = Math.floor(window.innerHeight);
+  var vw = Math.floor(window.innerWidth), vh = Math.floor(window.innerHeight);
+  var portrait = vh > vw;
+  if (portrait) {
+    // 논리 좌표계는 항상 가로: W=화면높이, H=화면너비
+    ROT = 90; W = vh; H = vw;
+    if (gameEl) {
+      gameEl.style.width = vh + 'px';
+      gameEl.style.height = vw + 'px';
+      gameEl.style.left = '0px'; gameEl.style.top = '0px';
+      gameEl.style.transformOrigin = '0 0';
+      gameEl.style.transform = 'translateX(' + vw + 'px) rotate(90deg)';
+    }
+  } else {
+    ROT = 0; W = vw; H = vh;
+    if (gameEl) {
+      gameEl.style.width = '100%';
+      gameEl.style.height = '100%';
+      gameEl.style.left = '0px'; gameEl.style.top = '0px';
+      gameEl.style.transformOrigin = '';
+      gameEl.style.transform = 'none';
+    }
+  }
   canvas.width = Math.floor(W * DPR);
   canvas.height = Math.floor(H * DPR);
   canvas.style.width = W + 'px';
@@ -535,7 +555,7 @@ function render(dt){
   else if (GAME.scene==='result') renderResult();
   drawVersion();
 }
-var VERSION='v5';
+var VERSION='v6';
 function drawVersion(){
   try { ctx.save(); ctx.globalAlpha=0.5; ctx.fillStyle=UI.ink3;
     ctx.font='700 12px '+FONT; ctx.textAlign='left'; ctx.textBaseline='bottom';
@@ -961,11 +981,15 @@ function drawMuteButton(){
 }
 
 /* ===================== 입력 ===================== */
+function mapClient(cx, cy){
+  // 회전 상태에서 화면(viewport) 좌표 -> 게임(가로) 좌표로 역변환
+  if (ROT===90){ return { x: cy, y: Math.floor(window.innerWidth) - cx }; }
+  return { x: cx, y: cy };
+}
 function pointFromEvent(e){
-  var r=canvas.getBoundingClientRect();
   var cxp=(e.touches&&e.touches[0])?e.touches[0].clientX:e.clientX;
   var cyp=(e.touches&&e.touches[0])?e.touches[0].clientY:e.clientY;
-  return { x:cxp-r.left, y:cyp-r.top };
+  return mapClient(cxp, cyp);
 }
 function hitUI(px,py){
   for (var i=uiButtons.length-1;i>=0;i--){
@@ -1000,10 +1024,9 @@ function doButton(b){
 }
 function handleTouchStart(e){
   e.preventDefault(); AudioEngine.unlock();
-  var r=canvas.getBoundingClientRect();
   for (var i=0;i<e.changedTouches.length;i++){
-    var t=e.changedTouches[i];
-    handleDown(t.clientX-r.left, t.clientY-r.top);
+    var t=e.changedTouches[i]; var p=mapClient(t.clientX, t.clientY);
+    handleDown(p.x, p.y);
   }
 }
 canvas.addEventListener('touchstart', handleTouchStart, {passive:false});
@@ -1015,12 +1038,12 @@ document.addEventListener('keydown', function(e){
   var k=e.key.toLowerCase();
   if (k in keyMap && GAME.scene==='game'){ var lane=keyMap[k]; if(lane<laneCount()){ keyPressAnim[lane]=1; pressLane(lane); } }
 });
-try { console.info('piano rhythm game v5 (faster, longer, richer audio; audio-decoupled)'); } catch(e){}
+try { console.info('piano rhythm game v6 (auto-landscape rotate; audio-decoupled)'); } catch(e){}
 try { resize(); } catch(e){}
 requestAnimationFrame(tick);
 window.addEventListener('touchend', function(){ AudioEngine.unlock(); });
 window.addEventListener('click', function(){ AudioEngine.unlock(); });
-window.__PIANO__ = { GAME:GAME, SONGS:SONGS, DIFFS:DIFFS, AudioEngine:AudioEngine, startGame:startGame, buildTiles:buildTiles, danceForGenre:danceForGenre, computeDance:computeDance, GENRE_DANCE:GENRE_DANCE };
+window.__PIANO__ = { GAME:GAME, SONGS:SONGS, DIFFS:DIFFS, AudioEngine:AudioEngine, startGame:startGame, buildTiles:buildTiles, danceForGenre:danceForGenre, computeDance:computeDance, GENRE_DANCE:GENRE_DANCE, mapClient:mapClient, _resize:resize, getROT:function(){return ROT;}, keyPressAnim:function(){return keyPressAnim;} };
 })();
 </script>
 </body>
